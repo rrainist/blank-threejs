@@ -16,6 +16,6 @@
     "tests"
   ],
   "dependencies": {
-    "threestrap": "~0.0.5"
+    "threestrap": "~0.0.9"
   }
 }
