@@ -1,8 +1,6 @@
-var three = THREE.Bootstrap({
-  plugins: ['core']
-});
+const three = THREE.Bootstrap();
 
-var cube = new THREE.Mesh(new THREE.CubeGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xff3333 }));
+const cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xff3333 }));
 
 three.scene.add(cube);
 
