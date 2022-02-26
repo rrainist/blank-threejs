@@ -2,13 +2,10 @@
   "name": "new-three-project",
   "version": "0.0.0",
   "description": "",
-  "main": "index.html",
+  "main": "/js/main.js",
   "dependencies": {
-    "three": ">0.137"
+    "three": "0.138",
+    "threestrap": "0.4.1"
   },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Aaron Bell",
-  "license": "BSD-2-Clause"
+  "author": "Aaron Bell"
 }
