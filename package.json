@@ -1,11 +1,25 @@
 {
-  "name": "new-three-project",
-  "version": "0.0.0",
-  "description": "",
-  "main": "/js/main.js",
-  "dependencies": {
-    "three": "0.138",
-    "threestrap": "0.4.1"
+  "name": "modern-three-project",
+  "version": "1.0.0",
+  "description": "A modern Three.js template with TypeScript and Vite",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext ts,js --report-unused-disable-directives --max-warnings 0"
   },
-  "author": "Aaron Bell"
+  "dependencies": {
+    "three": "^0.160.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.160.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.45.0",
+    "typescript": "^5.0.2",
+    "vite": "^5.0.8"
+  },
+  "author": "Modern Three.js Template",
+  "license": "MIT"
 }

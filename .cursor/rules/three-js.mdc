@@ -1,0 +1,105 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: This rule provides guidelines and best practices for developing efficient, maintainable, and robust 3D web applications using Three.js. It covers aspects like code organization, performance optimization, security, testing, and common pitfalls to ensure a high-quality development experience.
+globs: *.js,*.ts,*.jsx,*.tsx,*.mjs,*.html
+---
+# Three.js Prototyping Guidelines
+
+Quick reference for our TypeScript + Vite Three.js template.
+
+## Library Information:
+- Name: three.js
+- Version: 0.160+
+- Build Tool: Vite
+- Language: TypeScript
+
+## 1. Project Structure
+
+Current template structure:
+```
+src/
+├── main.ts           # ThreeApp class entry point
+├── scene.ts          # Scene creation
+├── controls.ts       # Mouse/touch controls
+└── utils/resize.ts   # Window resize handling
+```
+
+## 2. Critical Anti-patterns
+
+### 2.1. Never Create Objects in Render Loop
+```typescript
+// ❌ BAD: Creates new objects every frame
+function animate() {
+  const newMesh = new THREE.Mesh(geometry, material) // Memory leak!
+  scene.add(newMesh)
+}
+
+// ✅ GOOD: Create once, reuse
+const mesh = new THREE.Mesh(geometry, material)
+scene.add(mesh)
+```
+
+### 2.2. Always Dispose Resources
+```typescript
+// ✅ Required disposal pattern
+public dispose(): void {
+  if (this.animationId) cancelAnimationFrame(this.animationId)
+  
+  this.cube.geometry.dispose()
+  if (this.cube.material instanceof THREE.Material) {
+    this.cube.material.dispose()
+  }
+  this.renderer.dispose()
+}
+```
+
+## 3. Three.js Import Pattern
+
+```typescript
+// ✅ Always use namespace import
+import * as THREE from 'three'
+
+// ❌ Avoid default imports - causes issues
+import THREE from 'three'
+```
+
+## 4. Window Resize Handler
+
+```typescript
+// ✅ Complete resize handling
+function handleResize(camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer): void {
+  camera.aspect = window.innerWidth / window.innerHeight
+  camera.updateProjectionMatrix()  // Often forgotten!
+  
+  renderer.setSize(window.innerWidth, window.innerHeight)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+}
+```
+
+## 5. Performance Essentials
+
+- Set pixel ratio: `Math.min(window.devicePixelRatio, 2)` (prevents 4K performance issues)
+- Use `requestAnimationFrame` for animations
+- Shadow map type: `PCFSoftShadowMap` for quality/performance balance
+
+## 6. TypeScript Types
+
+Use specific Three.js types:
+```typescript
+private camera: THREE.PerspectiveCamera  // Not just 'any'
+private renderer: THREE.WebGLRenderer
+private mesh: THREE.Mesh
+```
+
+## 7. Common Extensions
+
+- **OrbitControls:** `import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'`
+- **GLTF Models:** `import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'`
+
+
+
+Focus on getting prototypes working quickly while avoiding memory leaks and performance issues.
