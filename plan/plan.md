@@ -11,7 +11,6 @@ This plan implements a faithful recreation of Atari's 1979 Asteroids using Three
 ### 0.1 Project Structure Setup
 - [ ] Create core folder structure (`src/entities/`, `src/systems/`, `src/utils/`)
 - [ ] Set up TypeScript interfaces for game entities
-- [ ] Configure ESLint with airbnb-typescript rules
 
 
 ### 0.2 Core Game Architecture
