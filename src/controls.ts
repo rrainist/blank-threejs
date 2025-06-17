@@ -3,8 +3,8 @@ import * as THREE from 'three'
 let isMouseDown = false
 let mouseX = 0
 let mouseY = 0
-let targetRotationX = 0
-let targetRotationY = 0
+let _targetRotationX = 0
+let _targetRotationY = 0
 
 export function setupControls(camera: THREE.PerspectiveCamera, canvas: HTMLCanvasElement): void {
   canvas.addEventListener('mousedown', onMouseDown)
@@ -30,8 +30,8 @@ function onMouseMove(event: MouseEvent): void {
   const deltaX = event.clientX - mouseX
   const deltaY = event.clientY - mouseY
   
-  targetRotationX += deltaY * 0.01
-  targetRotationY += deltaX * 0.01
+  _targetRotationX += deltaY * 0.01
+  _targetRotationY += deltaX * 0.01
   
   mouseX = event.clientX
   mouseY = event.clientY
@@ -61,8 +61,8 @@ function onTouchMove(event: TouchEvent): void {
     const deltaX = touch.clientX - mouseX
     const deltaY = touch.clientY - mouseY
     
-    targetRotationX += deltaY * 0.01
-    targetRotationY += deltaX * 0.01
+    _targetRotationX += deltaY * 0.01
+    _targetRotationY += deltaX * 0.01
     
     mouseX = touch.clientX
     mouseY = touch.clientY
