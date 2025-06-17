@@ -12,8 +12,7 @@ This plan implements a faithful recreation of Atari's 1979 Asteroids using Three
 - [ ] Create core folder structure (`src/entities/`, `src/systems/`, `src/utils/`)
 - [ ] Set up TypeScript interfaces for game entities
 - [ ] Configure ESLint with airbnb-typescript rules
-- [ ] Add testing framework (Jest + jsdom)
-- [ ] Create basic CI/CD pipeline (GitHub Actions)
+
 
 ### 0.2 Core Game Architecture
 - [ ] Create `GameState` class to manage game phases (menu, playing, paused, game-over)

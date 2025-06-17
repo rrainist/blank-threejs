@@ -13,11 +13,16 @@
     "three": "^0.160.1"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/three": "^0.160.0",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "eslint": "^8.45.0",
     "eslint-config-airbnb-typescript": "^18.0.0",
+    "eslint-plugin-import": "^2.31.0",
+    "jest": "^30.0.0",
+    "jest-environment-jsdom": "^30.0.0",
+    "ts-jest": "^29.4.0",
     "typescript": "^5.0.2",
     "vite": "^5.0.8"
   },
