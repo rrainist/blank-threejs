@@ -16,6 +16,8 @@ import { Player } from './entities/Player'
 import { Collectible } from './entities/Collectible'
 import { Enemy, EnemyType } from './entities/Enemy'
 import { ObjectPool } from './utils/ObjectPool'
+import { Bullet } from './entities/Bullet'
+import { BulletPool } from './systems/BulletPool'
 
 class GameApp {
   private scene!: THREE.Scene
@@ -36,8 +38,13 @@ class GameApp {
   // Game state
   private player?: Player
   private score = 0
+  private currentLevel = 1
+  private totalLevels = 2
   private debugInfo?: HTMLDivElement
   private collectiblePool!: ObjectPool<Collectible>
+  private bulletPool!: BulletPool
+  private raycaster!: THREE.Raycaster
+  private mouse!: THREE.Vector2
 
   constructor() {
     this.init()
@@ -64,7 +71,7 @@ class GameApp {
       this.setupEventListeners()
       
       // Load initial scene
-      await this.sceneManager.loadScene('gameLevel', false)
+      await this.sceneManager.loadScene('level1', false)
       
       // Setup game
       this.setupGame()
@@ -88,6 +95,11 @@ class GameApp {
     this.uiManager = UIManager.initialize({
       debugMode: false
     })
+    
+    // Initialize shooting systems
+    this.bulletPool = BulletPool.getInstance()
+    this.raycaster = new THREE.Raycaster()
+    this.mouse = new THREE.Vector2()
     
     // Preload common assets
     this.assetLoader.preloadCommonTextures()
@@ -187,6 +199,9 @@ class GameApp {
       this.audioManager.play3D('button', event.player.position, {
         volume: 0.4
       })
+      
+      // Check for enemy hits
+      this.checkAttackCollisions(event.player)
     })
     
     // Enemy events
@@ -210,8 +225,22 @@ class GameApp {
     this.inputManager.addAction('mute', { keys: ['m', 'M'] })
     this.inputManager.addAction('save', { keys: ['F5'] })
     this.inputManager.addAction('load', { keys: ['F9'] })
-    this.inputManager.addAction('switchScene', { keys: ['n', 'N'] })
     this.inputManager.addAction('debugPhysics', { keys: ['F1'] })
+    
+    // Mouse click for shooting
+    window.addEventListener('click', this.onMouseClick.bind(this))
+    
+    // Player shoot event
+    eventBus.on('player:shoot', (event: any) => {
+      const bullet = this.bulletPool.get()
+      if (bullet) {
+        bullet.fire(event.origin, event.direction)
+        this.scene.add(bullet)
+        
+        // Play shoot sound
+        this.audioManager.play3D('button', event.origin, { volume: 0.3 })
+      }
+    })
   }
 
   private async setupAudio(): Promise<void> {
@@ -318,56 +347,59 @@ class GameApp {
     // Initialize preset scenes
     this.sceneManager.initializePresetScenes()
     
-    // Register game level scene
-    this.sceneManager.registerScene('gameLevel', {
-      name: 'gameLevel',
+    // Register Level 1 - City Theme
+    this.sceneManager.registerScene('level1', {
+      name: 'level1',
       fogColor: 0xcccccc,
       fogNear: 20,
       fogFar: 100,
       ambientLight: {
-        color: 0x404040,
-        intensity: 0.6
+        color: 0x606060,
+        intensity: 1.0  // Increased from 0.8 to soften shadows
       },
       directionalLight: {
         color: 0xffffff,
-        intensity: 0.8,
+        intensity: 0.7,
         position: new THREE.Vector3(10, 10, 5),
         castShadow: true
       },
       onLoad: () => {
-        logger.info('Game level loaded')
-        // Create level geometry
-        this.createLevelGeometry()
+        logger.info('Level 1 - City loaded')
+        this.currentLevel = 1
+        this.createLevel1Geometry()
+        this.setupLevel()
       }
     })
     
-    // Register night scene variant
-    this.sceneManager.registerScene('gameLevelNight', {
-      name: 'gameLevelNight',
-      fogColor: 0x000033,
-      fogNear: 10,
-      fogFar: 50,
+    // Register Level 2 - Forest Theme
+    this.sceneManager.registerScene('level2', {
+      name: 'level2',
+      fogColor: 0x406040,  // Lighter green fog
+      fogNear: 15,
+      fogFar: 80,
       ambientLight: {
-        color: 0x222244,
-        intensity: 0.2
+        color: 0x606080,  // Brighter ambient color
+        intensity: 0.8    // Increased from 0.5 to make level much lighter
       },
       directionalLight: {
-        color: 0x4444ff,
-        intensity: 0.3,
+        color: 0xaabbff,  // Brighter blue-white light
+        intensity: 0.8,   // Increased from 0.6
         position: new THREE.Vector3(-20, 30, -10),
         castShadow: true
       },
       onLoad: () => {
-        logger.info('Night level loaded')
-        this.createLevelGeometry()
+        logger.info('Level 2 - Forest loaded')
+        this.currentLevel = 2
+        this.createLevel2Geometry()
+        this.setupLevel()
       }
     })
   }
 
-  private createLevelGeometry(): void {
-    logger.debug('Creating level geometry...')
+  private createLevel1Geometry(): void {
+    logger.debug('Creating Level 1 - City geometry...')
     
-    // Add larger ground plane
+    // Add city ground - gray concrete
     const planeGeometry = new THREE.PlaneGeometry(50, 50)
     const planeMaterial = new THREE.MeshPhongMaterial({ color: 0x808080 })
     const plane = new THREE.Mesh(planeGeometry, planeMaterial)
@@ -377,9 +409,7 @@ class GameApp {
     plane.name = 'Ground'
     this.scene.add(plane)
     
-    logger.debug(`Added ground plane. Scene now has ${this.scene.children.length} children`)
-    
-    // Add some walls
+    // Add city walls
     const wallGeometry = new THREE.BoxGeometry(50, 10, 1)
     const wallMaterial = new THREE.MeshPhongMaterial({ color: 0x606060 })
     
@@ -400,12 +430,97 @@ class GameApp {
       this.scene.add(wall)
     })
     
-    logger.debug(`Level geometry complete. Scene has ${this.scene.children.length} children`)
+    // Add city buildings (boxes)
+    const buildingMaterial = new THREE.MeshPhongMaterial({ color: 0x404040 })
+    const buildings = [
+      { pos: [8, 3, 8], size: [4, 6, 4] },
+      { pos: [-8, 2.5, -8], size: [5, 5, 5] },
+      { pos: [15, 4, -10], size: [3, 8, 3] },
+      { pos: [-12, 2, 12], size: [6, 4, 6] },
+      { pos: [0, 3.5, 0], size: [4, 7, 4] }
+    ]
     
-    // Log all scene children
-    this.scene.children.forEach(child => {
-      logger.debug(`Scene child: ${child.name || child.type} at position ${child.position.x}, ${child.position.y}, ${child.position.z}`)
+    buildings.forEach(({ pos, size }, index) => {
+      const buildingGeometry = new THREE.BoxGeometry(size[0], size[1], size[2])
+      const building = new THREE.Mesh(buildingGeometry, buildingMaterial)
+      building.position.set(pos[0], pos[1], pos[2])
+      building.castShadow = true
+      building.receiveShadow = true
+      building.name = `Building_${index}`
+      this.scene.add(building)
     })
+    
+    logger.debug(`Level 1 geometry complete. Scene has ${this.scene.children.length} children`)
+  }
+
+  private createLevel2Geometry(): void {
+    logger.debug('Creating Level 2 - Forest geometry...')
+    
+    // Add forest ground - green grass
+    const planeGeometry = new THREE.PlaneGeometry(50, 50)
+    const planeMaterial = new THREE.MeshPhongMaterial({ color: 0x2d5016 })
+    const plane = new THREE.Mesh(planeGeometry, planeMaterial)
+    plane.rotation.x = -Math.PI / 2
+    plane.position.y = 0
+    plane.receiveShadow = true
+    plane.name = 'Ground'
+    this.scene.add(plane)
+    
+    // Add forest boundaries - natural rock walls
+    const wallGeometry = new THREE.BoxGeometry(50, 10, 1)
+    const wallMaterial = new THREE.MeshPhongMaterial({ color: 0x4a4a4a })
+    
+    const walls = [
+      { pos: [0, 5, -25], rot: [0, 0, 0] },
+      { pos: [0, 5, 25], rot: [0, Math.PI, 0] },
+      { pos: [-25, 5, 0], rot: [0, Math.PI / 2, 0] },
+      { pos: [25, 5, 0], rot: [0, -Math.PI / 2, 0] }
+    ]
+    
+    walls.forEach(({ pos, rot }) => {
+      const wall = new THREE.Mesh(wallGeometry, wallMaterial)
+      wall.position.set(pos[0], pos[1], pos[2])
+      wall.rotation.set(rot[0], rot[1], rot[2])
+      wall.castShadow = true
+      wall.receiveShadow = true
+      wall.name = `Wall_${pos[0]}_${pos[2]}`
+      this.scene.add(wall)
+    })
+    
+    // Add trees (cylinders)
+    const treeTrunkMaterial = new THREE.MeshPhongMaterial({ color: 0x4a3c28 })
+    const treeLeavesMaterial = new THREE.MeshPhongMaterial({ color: 0x228b22 })
+    
+    const trees = [
+      { pos: [10, 0, 10], height: 6, radius: 0.8 },
+      { pos: [-12, 0, -8], height: 8, radius: 1 },
+      { pos: [15, 0, -15], height: 5, radius: 0.6 },
+      { pos: [-8, 0, 12], height: 7, radius: 0.9 },
+      { pos: [5, 0, -5], height: 6, radius: 0.7 },
+      { pos: [-18, 0, 5], height: 9, radius: 1.2 }
+    ]
+    
+    trees.forEach(({ pos, height, radius }, index) => {
+      // Tree trunk
+      const trunkGeometry = new THREE.CylinderGeometry(radius, radius * 1.2, height)
+      const trunk = new THREE.Mesh(trunkGeometry, treeTrunkMaterial)
+      trunk.position.set(pos[0], height / 2, pos[2])
+      trunk.castShadow = true
+      trunk.receiveShadow = true
+      trunk.name = `TreeTrunk_${index}`
+      this.scene.add(trunk)
+      
+      // Tree leaves (sphere on top)
+      const leavesGeometry = new THREE.SphereGeometry(radius * 3, 8, 6)
+      const leaves = new THREE.Mesh(leavesGeometry, treeLeavesMaterial)
+      leaves.position.set(pos[0], height + radius * 2, pos[2])
+      leaves.castShadow = true
+      leaves.receiveShadow = true
+      leaves.name = `TreeLeaves_${index}`
+      this.scene.add(leaves)
+    })
+    
+    logger.debug(`Level 2 geometry complete. Scene has ${this.scene.children.length} children`)
   }
 
   private setupGame(): void {
@@ -413,34 +528,63 @@ class GameApp {
     this.player = new Player()
     this.scene.add(this.player)
     
-    // Create some collectibles
-    this.spawnCollectibles()
-    
-    // Create some enemies
-    this.spawnEnemies()
-    
     // Start game
     this.gameManager.changeState(GameState.PLAYING)
     
     // Show HUD
     this.uiManager.showScreen('hud')
   }
+  
+  private setupLevel(): void {
+    // Clear existing collectibles and enemies
+    this.clearLevelEntities()
+    
+    // Spawn level-specific items
+    if (this.currentLevel === 1) {
+      this.spawnLevel1Collectibles()
+      this.spawnLevel1Enemies()
+    } else if (this.currentLevel === 2) {
+      this.spawnLevel2Collectibles()
+      this.spawnLevel2Enemies()
+    }
+    
+    // Reset player position
+    if (this.player) {
+      this.player.position.set(0, 1, 0)
+    }
+  }
+  
+  private clearLevelEntities(): void {
+    // Remove all collectibles and enemies from scene
+    const entitiesToRemove: THREE.Object3D[] = []
+    this.scene.traverse((object) => {
+      if (object.userData.type === 'collectible' || object.userData.type === 'enemy') {
+        entitiesToRemove.push(object)
+      }
+    })
+    
+    entitiesToRemove.forEach(entity => {
+      this.scene.remove(entity)
+      if (entity.userData.type === 'collectible' && entity instanceof Collectible) {
+        this.collectiblePool.release(entity)
+      }
+    })
+  }
 
-  private spawnCollectibles(): void {
+  private spawnLevel1Collectibles(): void {
+    // City-themed collectible positions (strategically placed in open areas)
     const positions = [
-      [5, 1, 5],
-      [-5, 1, 5],
-      [5, 1, -5],
-      [-5, 1, -5],
-      [10, 1, 0],
-      [-10, 1, 0],
-      [0, 1, 10],
-      [0, 1, -10],
-      [15, 1, 15],
-      [-15, 1, -15]
+      [0, 1, 0],      // Center of map
+      [-12, 1, 0],    // West open area
+      [12, 1, 0],     // East open area
+      [0, 1, -12],    // North open area
+      [0, 1, 12],     // South open area
+      [15, 1, 15],    // Southeast corner (open)
+      [-15, 1, -15],  // Northwest corner (open)
+      [15, 1, -15]    // Northeast corner (open)
     ]
     
-    const colors = [0xffff00, 0xff00ff, 0x00ffff, 0xff8800, 0x00ff00]
+    const colors = [0xffff00, 0xff00ff, 0x00ffff]
     
     positions.forEach((pos, index) => {
       const collectible = this.collectiblePool.get()
@@ -451,9 +595,35 @@ class GameApp {
       this.scene.add(collectible)
     })
   }
+  
+  private spawnLevel2Collectibles(): void {
+    // Forest-themed collectible positions (in clearings between trees)
+    const positions = [
+      [0, 1, 0],      // Center clearing
+      [-15, 1, 0],    // West clearing
+      [15, 1, 0],     // East clearing  
+      [0, 1, -15],    // North clearing
+      [0, 1, 15],     // South clearing
+      [18, 1, 18],    // Far corner clearing
+      [-18, 1, -18],  // Opposite corner clearing
+      [18, 1, -18],   // Northeast clearing
+      [-18, 1, 18]    // Southwest clearing
+    ]
+    
+    const colors = [0x00ff00, 0xffff00, 0xff8800] // Nature colors
+    
+    positions.forEach((pos, index) => {
+      const collectible = this.collectiblePool.get()
+      collectible.setValue(15 + index * 5) // Higher value in level 2
+      collectible.setColor(colors[index % colors.length])
+      collectible.position.set(pos[0], pos[1], pos[2])
+      collectible.baseY = pos[1]
+      this.scene.add(collectible)
+    })
+  }
 
-  private spawnEnemies(): void {
-    // Spawn patrol enemies
+  private spawnLevel1Enemies(): void {
+    // City enemies - more mechanical/robotic theme
     const patrolEnemy1 = new Enemy(EnemyType.PATROL, 0xff0000)
     patrolEnemy1.position.set(10, 1, 10)
     patrolEnemy1.setTarget(this.player!)
@@ -465,28 +635,36 @@ class GameApp {
     ])
     this.scene.add(patrolEnemy1)
     
-    const patrolEnemy2 = new Enemy(EnemyType.PATROL, 0xff0000)
-    patrolEnemy2.position.set(-10, 1, -10)
-    patrolEnemy2.setTarget(this.player!)
-    patrolEnemy2.setPatrolPoints([
+    // Spawn shooter enemy in city
+    const shooterEnemy = new Enemy(EnemyType.SHOOTER, 0x0000ff)
+    shooterEnemy.position.set(-15, 1, 0)
+    shooterEnemy.setTarget(this.player!)
+    this.scene.add(shooterEnemy)
+  }
+  
+  private spawnLevel2Enemies(): void {
+    // Forest enemies - more organic/creature theme
+    const patrolEnemy1 = new Enemy(EnemyType.PATROL, 0x8b4513) // Brown
+    patrolEnemy1.position.set(-10, 1, -10)
+    patrolEnemy1.setTarget(this.player!)
+    patrolEnemy1.setPatrolPoints([
       new THREE.Vector3(-10, 1, -10),
       new THREE.Vector3(-15, 1, -10),
       new THREE.Vector3(-15, 1, -15),
       new THREE.Vector3(-10, 1, -15)
     ])
-    this.scene.add(patrolEnemy2)
+    this.scene.add(patrolEnemy1)
     
-    // Spawn chaser enemy
-    const chaserEnemy = new Enemy(EnemyType.CHASER, 0xff00ff)
-    chaserEnemy.position.set(0, 1, -15)
-    chaserEnemy.setTarget(this.player!)
-    this.scene.add(chaserEnemy)
+    // Spawn multiple chasers in forest
+    const chaserEnemy1 = new Enemy(EnemyType.CHASER, 0x228b22) // Forest green
+    chaserEnemy1.position.set(0, 1, -15)
+    chaserEnemy1.setTarget(this.player!)
+    this.scene.add(chaserEnemy1)
     
-    // Spawn shooter enemy
-    const shooterEnemy = new Enemy(EnemyType.SHOOTER, 0x0000ff)
-    shooterEnemy.position.set(-15, 1, 0)
-    shooterEnemy.setTarget(this.player!)
-    this.scene.add(shooterEnemy)
+    const chaserEnemy2 = new Enemy(EnemyType.CHASER, 0x228b22)
+    chaserEnemy2.position.set(15, 1, 5)
+    chaserEnemy2.setTarget(this.player!)
+    this.scene.add(chaserEnemy2)
   }
 
   private createDebugUI(): void {
@@ -525,6 +703,7 @@ class GameApp {
       <div>FPS: ${fps}</div>
       <div>Entities: ${entityCount}</div>
       <div>State: ${state}</div>
+      <div>Level: ${this.currentLevel} / ${this.totalLevels}</div>
       <div>Scene: ${currentScene}</div>
       <div>Score: ${this.score}</div>
       <div>Health: ${health}</div>
@@ -533,12 +712,11 @@ class GameApp {
         <div>Controls:</div>
         <div>WASD/Arrows - Move</div>
         <div>Space - Jump</div>
-        <div>F/Left Click - Attack</div>
-        <div>Mouse - Look</div>
+        <div>F - Melee Attack</div>
+        <div>Left Click - Shoot</div>
         <div>C - Spawn collectible</div>
         <div>R - Restart</div>
         <div>P - Pause</div>
-        <div>N - Switch scene</div>
         <div>M - Mute audio</div>
         <div>F5 - Save game</div>
         <div>F9 - Load game</div>
@@ -547,24 +725,14 @@ class GameApp {
   }
 
   private resetGame(): void {
-    // Clear entities from scene
-    const entitiesToRemove: THREE.Object3D[] = []
-    this.scene.traverse((object) => {
-      if (object.userData.type && object.userData.type !== 'ground') {
-        entitiesToRemove.push(object)
-      }
-    })
-    
-    entitiesToRemove.forEach(entity => {
-      this.scene.remove(entity)
-    })
-    
-    // Reset score
+    // Reset score and level
     this.score = 0
+    this.currentLevel = 1
     this.gameManager.resetGameData()
+    this.gameManager.setLevel(1)
     
-    // Recreate game
-    this.setupGame()
+    // Load level 1
+    this.sceneManager.loadScene('level1')
   }
   
   private checkCollisions(): void {
@@ -597,7 +765,115 @@ class GameApp {
         this.timeManager.setTimeout(() => {
           this.scene.remove(collectible)
           this.collectiblePool.release(collectible)
+          
+          // Check if all collectibles are collected
+          this.checkLevelComplete()
         }, 0.5)
+      }
+    })
+  }
+  
+  private checkLevelComplete(): void {
+    // Count remaining collectibles
+    let remainingCollectibles = 0
+    this.scene.traverse((object) => {
+      if (object.userData.type === 'collectible') {
+        remainingCollectibles++
+      }
+    })
+    
+    logger.debug(`Collectibles remaining: ${remainingCollectibles}`)
+    
+    // If no collectibles left, level is complete
+    if (remainingCollectibles === 0) {
+      eventBus.emit(GameEvents.LEVEL_COMPLETE, {
+        level: this.currentLevel,
+        score: this.score
+      })
+      
+      // Progress to next level
+      this.progressToNextLevel()
+    }
+  }
+  
+  private progressToNextLevel(): void {
+    logger.info(`Level ${this.currentLevel} complete! Score: ${this.score}`)
+    
+    // Calculate next level
+    this.currentLevel++
+    if (this.currentLevel > this.totalLevels) {
+      this.currentLevel = 1 // Loop back to level 1
+    }
+    
+    // Update game manager level
+    this.gameManager.setLevel(this.currentLevel)
+    
+    // Load next level scene
+    const nextScene = `level${this.currentLevel}`
+    logger.info(`Loading ${nextScene}...`)
+    
+    // Add a small delay for transition
+    this.timeManager.setTimeout(() => {
+      this.sceneManager.loadScene(nextScene)
+    }, 1.5)
+  }
+  
+  private onMouseClick(event: MouseEvent): void {
+    if (!this.player || this.gameManager.isInState(GameState.PAUSED)) return
+    
+    // Convert mouse position to normalized device coordinates (-1 to +1)
+    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1
+    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
+    
+    // Set up ray from camera through mouse position
+    this.raycaster.setFromCamera(this.mouse, this.camera)
+    
+    // Create a plane at player height for ray intersection
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1) // y = 1 plane
+    const intersectPoint = new THREE.Vector3()
+    this.raycaster.ray.intersectPlane(plane, intersectPoint)
+    
+    // Calculate direction from player to click point
+    const direction = new THREE.Vector3()
+    direction.subVectors(intersectPoint, this.player.position)
+    direction.y = 0 // Keep bullets horizontal
+    direction.normalize()
+    
+    // Shoot bullet
+    this.player.shoot(direction)
+  }
+  
+  private checkAttackCollisions(attacker: Player): void {
+    if (!attacker) return
+    
+    // Find all enemies in the scene
+    const enemies: Enemy[] = []
+    this.scene.traverse((object) => {
+      if (object.userData.type === 'enemy' && object instanceof Enemy) {
+        enemies.push(object)
+      }
+    })
+    
+    const attackerPos = attacker.position
+    const attackRange = attacker.attackRange
+    
+    enemies.forEach(enemy => {
+      const distance = attackerPos.distanceTo(enemy.position)
+      if (distance <= attackRange) {
+        // Deal damage to enemy
+        enemy.takeDamage(attacker.attackDamage)
+        
+        // Check if enemy died
+        if (enemy.health <= 0) {
+          // Emit death event
+          eventBus.emit(GameEvents.ENEMY_DEATH, {
+            enemy: enemy,
+            position: enemy.position.clone()
+          })
+          
+          // Remove enemy from scene
+          this.scene.remove(enemy)
+        }
       }
     })
   }
@@ -657,13 +933,6 @@ class GameApp {
       }
     }
     
-    if (this.inputManager.isActionJustPressed('switchScene')) {
-      // Toggle between day and night scenes
-      const currentScene = this.sceneManager.getCurrentSceneName()
-      const newScene = currentScene === 'gameLevel' ? 'gameLevelNight' : 'gameLevel'
-      this.sceneManager.loadScene(newScene)
-      logger.info(`Switched to ${newScene}`)
-    }
     
     // Update game manager
     this.gameManager.update(deltaTime)
@@ -688,15 +957,19 @@ class GameApp {
         }
       })
       
+      // Update bullets
+      this.bulletPool.updateAll(deltaTime)
+      
       // Simple collision detection
       this.checkCollisions()
+      this.checkBulletCollisions()
       
       // Simple camera follow
       if (this.player) {
-        // Position camera behind and above player
+        // Position camera behind and above player with more distance to reduce clipping
         this.camera.position.x = this.player.position.x
-        this.camera.position.y = this.player.position.y + 10
-        this.camera.position.z = this.player.position.z + 10
+        this.camera.position.y = this.player.position.y + 15
+        this.camera.position.z = this.player.position.z + 15
         
         // Look at player
         this.camera.lookAt(this.player.position)
@@ -779,6 +1052,59 @@ class GameApp {
     if (this.debugInfo) {
       this.debugInfo.remove()
     }
+  }
+  
+  private checkBulletCollisions(): void {
+    const bullets = this.bulletPool.getActiveBullets()
+    const enemies: Enemy[] = []
+    
+    // Find all enemies
+    this.scene.traverse((object) => {
+      if (object.userData.type === 'enemy' && object instanceof Enemy) {
+        enemies.push(object)
+      }
+    })
+    
+    // Check each bullet against each enemy
+    bullets.forEach(bullet => {
+      if (!bullet.active) return
+      
+      enemies.forEach(enemy => {
+        if (!enemy.visible) return
+        
+        const distance = bullet.position.distanceTo(enemy.position)
+        if (distance < 1.0) { // Hit radius
+          // Deal damage to enemy
+          enemy.takeDamage(bullet.damage)
+          
+          // Check if enemy died
+          if (enemy.health <= 0) {
+            eventBus.emit(GameEvents.ENEMY_DEATH, {
+              enemy,
+              position: enemy.position.clone()
+            })
+            this.scene.remove(enemy)
+          }
+          
+          // Remove bullet
+          this.scene.remove(bullet)
+          this.bulletPool.release(bullet)
+          
+          // Visual effect - flash enemy red
+          if (enemy.mesh && enemy.mesh.material instanceof THREE.MeshPhongMaterial) {
+            const material = enemy.mesh.material
+            const originalColor = material.color.getHex()
+            material.color.setHex(0xffffff)
+            
+            this.timeManager.setTimeout(() => {
+              if (enemy.mesh && enemy.mesh.material instanceof THREE.MeshPhongMaterial) {
+                enemy.mesh.material.color.setHex(originalColor)
+              }
+            }, 0.1)
+          }
+        }
+      })
+    })
   }
 }
 

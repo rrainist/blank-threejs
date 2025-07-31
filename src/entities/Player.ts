@@ -13,6 +13,8 @@ export class Player extends THREE.Group {
   attackRange: number
   attackCooldown: number
   lastAttackTime: number = 0
+  shootCooldown: number = 0.3
+  lastShootTime: number = 0
   
   // Physics
   velocity: THREE.Vector3
@@ -135,7 +137,12 @@ export class Player extends THREE.Group {
       }, 200)
     }
     
-    // Attack logic will be handled by game
+    // Emit attack event
+    eventBus.emit('player:attack', {
+      player: this,
+      target: this, // Will be updated by game to actual target
+      damage: this.attackDamage
+    })
   }
   
   takeDamage(amount: number): void {
@@ -150,6 +157,32 @@ export class Player extends THREE.Group {
       setTimeout(() => {
         material.color.setHex(originalColor)
       }, 200)
+    }
+  }
+  
+  shoot(direction: THREE.Vector3): void {
+    const now = Date.now() / 1000
+    if (now - this.lastShootTime < this.shootCooldown) return
+    
+    this.lastShootTime = now
+    
+    // Emit shoot event with origin and direction
+    eventBus.emit('player:shoot', {
+      player: this,
+      origin: this.position.clone(),
+      direction: direction.clone()
+    })
+    
+    // Visual feedback - quick flash
+    if (this.mesh.material instanceof THREE.MeshPhongMaterial) {
+      const material = this.mesh.material
+      material.emissive.setHex(0xffff00)
+      material.emissiveIntensity = 0.8
+      
+      setTimeout(() => {
+        material.emissive.setHex(PLAYER.EMISSIVE_COLOR)
+        material.emissiveIntensity = 0.1
+      }, 100)
     }
   }
   
