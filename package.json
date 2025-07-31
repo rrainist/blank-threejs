@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:game": "vite --config vite.game.config.ts",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext ts,js --report-unused-disable-directives --max-warnings 10"

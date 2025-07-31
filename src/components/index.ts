@@ -1,0 +1,6 @@
+export { Health } from './Health'
+export { Movement } from './Movement'
+export { Collider, ColliderType } from './Collider'
+export type { Component } from '../entities/GameObject'
+export type { HealthChangeEvent } from './Health'
+export type { CollisionEvent } from './Collider'

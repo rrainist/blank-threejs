@@ -4,10 +4,10 @@ import { setupControls } from './controls'
 import { handleResize } from './utils/resize'
 
 class ThreeApp {
-  private scene: THREE.Scene
-  private camera: THREE.PerspectiveCamera
-  private renderer: THREE.WebGLRenderer
-  private cube: THREE.Mesh
+  private scene!: THREE.Scene
+  private camera!: THREE.PerspectiveCamera
+  private renderer!: THREE.WebGLRenderer
+  private cube!: THREE.Mesh
   private animationId: number | null = null
 
   constructor() {
@@ -138,12 +138,16 @@ class ThreeApp {
     }
     
     // Clean up geometry and materials
-    this.cube.geometry.dispose()
-    if (this.cube.material instanceof THREE.Material) {
-      this.cube.material.dispose()
+    if (this.cube) {
+      this.cube.geometry.dispose()
+      if (this.cube.material instanceof THREE.Material) {
+        this.cube.material.dispose()
+      }
     }
     
-    this.renderer.dispose()
+    if (this.renderer) {
+      this.renderer.dispose()
+    }
   }
 }
 

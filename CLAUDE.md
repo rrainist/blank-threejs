@@ -15,26 +15,100 @@ No test framework configured. Consider using Jest (already in devDependencies) w
 
 ## Architecture
 
-This is a modern Three.js TypeScript template using Vite as the build tool. The codebase follows object-oriented patterns with a modular structure.
+This is a game-ready Three.js TypeScript template with comprehensive systems for rapid game prototyping. It provides both a simple starter (`main.ts`) and a full game example (`main.game.ts`).
 
-### Core Structure
-- **ThreeApp Class** (`src/main.ts`): Main application controller that manages the Three.js lifecycle, including scene setup, camera, renderer, and animation loop. Uses proper cleanup in `dispose()` method.
-- **Scene Module** (`src/scene.ts`): Encapsulates scene creation with background and fog settings
-- **Controls Module** (`src/controls.ts`): Handles mouse/touch interactions for camera rotation
-- **Resize Utility** (`src/utils/resize.ts`): Manages responsive canvas sizing
+### Core Game Systems
+
+#### Entity Component System (ECS)
+- **EntityManager** (`src/systems/EntityManager.ts`): Manages all game objects, handles updates, and provides query methods
+- **GameObject** (`src/entities/GameObject.ts`): Base class for all game entities with transform, components, and lifecycle methods
+- **Components** (`src/components/`): Reusable behaviors like Health, Movement, and Collider
+
+#### System Managers
+- **GameManager** (`src/systems/GameManager.ts`): Game state machine (menu, playing, paused, game over), score/lives tracking, save/load functionality
+- **TimeManager** (`src/systems/TimeManager.ts`): Delta time, timers, FPS tracking, time scaling, frame-independent calculations
+- **InputManager** (`src/systems/InputManager.ts`): Unified input handling for keyboard, mouse, touch, and gamepad with action/axis mapping
+- **AssetLoader** (`src/systems/AssetLoader.ts`): Centralized asset loading for textures, models (GLTF), sounds, and JSON with progress tracking
+- **AudioManager** (`src/systems/AudioManager.ts`): 2D/3D sound playback, music with crossfade, volume controls, audio pooling
+
+#### Utilities
+- **EventBus** (`src/utils/EventBus.ts`): Decoupled communication between systems
+- **ObjectPool** (`src/utils/ObjectPool.ts`): Memory-efficient object reuse for bullets, particles, etc.
+- **Storage** (`src/systems/Storage.ts`): LocalStorage wrapper with versioning for save games and settings
+
+### Game Implementation Example
+
+The template includes a complete example game (`main.game.ts`) demonstrating:
+- Player character with WASD movement and jumping
+- Collectible items with scoring
+- Health system with damage/death handling
+- Camera following
+- Debug UI with FPS and game state
+- Input handling for pause, restart, and debug spawning
+
+### Usage Patterns
+
+#### Creating a New Entity
+```typescript
+class Enemy extends GameObject {
+  constructor() {
+    super('Enemy')
+    
+    // Create mesh
+    this.mesh = new THREE.Mesh(geometry, material)
+    
+    // Add components
+    this.addComponent('health', new Health(50))
+    this.addComponent('movement', new Movement(3))
+    this.addComponent('collider', new Collider(ColliderType.BOX))
+  }
+  
+  update(deltaTime: number): void {
+    super.update(deltaTime)
+    // Custom update logic
+  }
+  
+  clone(): Enemy {
+    return new Enemy()
+  }
+}
+```
+
+#### Using Systems
+```typescript
+// Get system instances
+const gameManager = GameManager.getInstance()
+const inputManager = InputManager.getInstance()
+const timeManager = TimeManager.getInstance()
+
+// Use timers
+timeManager.setTimeout(() => {
+  console.log('Timer fired!')
+}, 2) // 2 seconds
+
+// Check input
+if (inputManager.isActionPressed('fire')) {
+  // Fire weapon
+}
+
+// Save game
+gameManager.saveGame(0) // Save slot 0
+```
 
 ### Key Technical Details
 - Three.js v0.160+ with full TypeScript support
 - Vite for fast development and optimized builds
 - ES2020 target with modern JavaScript features
-- Strict TypeScript configuration with some linting relaxations
-- Shadow mapping enabled with PCF soft shadows
-- sRGB color space for accurate color rendering
-- HMR support with proper cleanup handlers
+- Component-based entity architecture
+- Event-driven communication
+- Memory pooling for performance
+- Save/load system with versioning
+- Comprehensive input system with remapping support
 
-### Development Patterns
-- Class-based architecture for main application logic
-- Functional modules for utilities and helpers
-- Proper memory management with geometry/material disposal
-- Event listener cleanup to prevent memory leaks
-- Type-safe Three.js usage throughout
+### Development Tips
+- Use `main.game.ts` as a reference for implementing game features
+- Extend GameObject for new entity types
+- Create reusable components for common behaviors
+- Use the EventBus for loose coupling between systems
+- Leverage ObjectPool for frequently created/destroyed objects
+- TimeManager handles all timing needs (timers, delta time, lerping)
