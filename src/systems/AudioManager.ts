@@ -24,13 +24,13 @@ export class AudioManager {
   // Audio pools for reuse
   private audioPool: THREE.Audio[] = []
   private positionalAudioPool: THREE.PositionalAudio[] = []
-  private activeAudio: Set<THREE.Audio> = new Set()
+  private activeAudio: Set<THREE.Audio | THREE.PositionalAudio> = new Set()
   
   // Volume controls
   private masterVolume = 1
   private musicVolume = 1
   private sfxVolume = 1
-  private isMuted = false
+  private muted = false
   
   // Currently playing music
   private currentMusic?: THREE.Audio
@@ -60,6 +60,13 @@ export class AudioManager {
   }
 
   /**
+   * Alias for playSound - Play a 2D sound (UI, music, etc)
+   */
+  play2D(soundKey: string, options: SoundOptions = {}): THREE.Audio | null {
+    return this.playSound(soundKey, options)
+  }
+
+  /**
    * Play a 2D sound (UI, music, etc)
    */
   playSound(soundKey: string, options: SoundOptions = {}): THREE.Audio | null {
@@ -74,11 +81,11 @@ export class AudioManager {
     audio.setLoop(options.loop || false)
     audio.setVolume((options.volume || 1) * this.sfxVolume * this.masterVolume)
     
-    if (!this.isMuted) {
+    if (!this.muted) {
       audio.play()
     }
     
-    this.activeAudio.add(audio)
+    this.activeAudio.add(audio as THREE.Audio | THREE.PositionalAudio)
     
     // Auto-cleanup for non-looping sounds
     if (!options.loop) {
@@ -89,6 +96,13 @@ export class AudioManager {
     }
     
     return audio
+  }
+
+  /**
+   * Alias for playSound3D - Play a 3D positional sound
+   */
+  play3D(soundKey: string, position: THREE.Vector3, options: Sound3DOptions = {}): THREE.PositionalAudio | null {
+    return this.playSound3D(soundKey, position, options)
   }
 
   /**
@@ -110,11 +124,11 @@ export class AudioManager {
     audio.setMaxDistance(options.maxDistance || 100)
     audio.position.copy(position)
     
-    if (!this.isMuted) {
+    if (!this.muted) {
       audio.play()
     }
     
-    this.activeAudio.add(audio)
+    this.activeAudio.add(audio as THREE.Audio | THREE.PositionalAudio)
     
     // Auto-cleanup for non-looping sounds
     if (!options.loop) {
@@ -150,7 +164,7 @@ export class AudioManager {
     audio.setLoop(options.loop !== false) // Default to loop for music
     audio.setVolume(0) // Start at 0 for fade in
     
-    if (!this.isMuted) {
+    if (!this.muted) {
       audio.play()
       await this.fadeIn(audio, (options.volume || 1) * this.musicVolume * this.masterVolume, this.musicFadeTime)
     } else {
@@ -158,7 +172,7 @@ export class AudioManager {
     }
     
     this.currentMusic = audio
-    this.activeAudio.add(audio)
+    this.activeAudio.add(audio as THREE.Audio | THREE.PositionalAudio)
   }
 
   /**
@@ -223,7 +237,7 @@ export class AudioManager {
   }
 
   setMuted(muted: boolean): void {
-    this.isMuted = muted
+    this.muted = muted
     
     if (muted) {
       this.activeAudio.forEach(audio => {
@@ -241,7 +255,7 @@ export class AudioManager {
   }
 
   toggleMute(): void {
-    this.setMuted(!this.isMuted)
+    this.setMuted(!this.muted)
   }
 
   getMasterVolume(): number {
@@ -257,7 +271,82 @@ export class AudioManager {
   }
 
   isMutedState(): boolean {
-    return this.isMuted
+    return this.muted
+  }
+
+  isMuted(): boolean {
+    return this.muted
+  }
+
+  /**
+   * Preload a sound buffer
+   */
+  preloadSound(key: string, buffer: AudioBuffer): void {
+    this.assetLoader.addSound(key, buffer)
+  }
+
+  /**
+   * Create a simple oscillator-based sound buffer for placeholder audio
+   */
+  createOscillatorBuffer(tones: Array<{
+    frequency: number
+    duration: number
+    type?: OscillatorType
+    volume?: number
+  }>): AudioBuffer {
+    const audioContext = this.listener.context
+    const sampleRate = audioContext.sampleRate
+    
+    // Calculate total duration
+    const totalDuration = tones.reduce((sum, tone) => sum + tone.duration, 0)
+    const frameCount = totalDuration * sampleRate
+    
+    // Create buffer
+    const buffer = audioContext.createBuffer(2, frameCount, sampleRate)
+    
+    let currentFrame = 0
+    
+    // Generate tones
+    for (const tone of tones) {
+      const toneFrames = tone.duration * sampleRate
+      const volume = tone.volume || 1
+      
+      for (let channel = 0; channel < 2; channel++) {
+        const channelData = buffer.getChannelData(channel)
+        
+        for (let i = 0; i < toneFrames; i++) {
+          const t = i / sampleRate
+          let value = 0
+          
+          switch (tone.type || 'sine') {
+            case 'sine':
+              value = Math.sin(2 * Math.PI * tone.frequency * t)
+              break
+            case 'square':
+              value = Math.sin(2 * Math.PI * tone.frequency * t) > 0 ? 1 : -1
+              break
+            case 'sawtooth':
+              value = 2 * (tone.frequency * t % 1) - 1
+              break
+            case 'triangle':
+              const period = 1 / tone.frequency
+              const phase = (t % period) / period
+              value = 4 * Math.abs(phase - 0.5) - 1
+              break
+          }
+          
+          // Apply envelope (simple fade in/out)
+          const envelope = Math.min(1, i / (0.01 * sampleRate)) * // Fade in
+                           Math.min(1, (toneFrames - i) / (0.01 * sampleRate)) // Fade out
+          
+          channelData[currentFrame + i] = value * volume * envelope * 0.3 // Reduce overall volume
+        }
+      }
+      
+      currentFrame += toneFrames
+    }
+    
+    return buffer
   }
 
   /**

@@ -1,4 +1,6 @@
 import { Storage } from './Storage'
+import { EventBus } from '../utils/EventBus'
+import { logger } from '../utils/Logger'
 
 export enum GameState {
   LOADING = 'loading',
@@ -13,7 +15,7 @@ export interface GameStateData {
   score: number
   level: number
   lives: number
-  [key: string]: any
+  [key: string]: unknown
 }
 
 type StateChangeCallback = (from: GameState, to: GameState) => void
@@ -30,11 +32,15 @@ export class GameManager {
     level: 1,
     lives: 3
   }
+  private health = 100
+  private maxHealth = 100
   private isPaused = false
   private storage: Storage
+  private eventBus: EventBus
 
   private constructor() {
     this.storage = Storage.getInstance()
+    this.eventBus = EventBus.getInstance()
     this.initializeStateCallbacks()
   }
 
@@ -63,7 +69,13 @@ export class GameManager {
     this.previousState = oldState
     this.currentState = newState
 
-    console.log(`Game state changed: ${oldState} -> ${newState}`)
+    logger.info(`Game state changed: ${oldState} -> ${newState}`)
+
+    // Emit state change event
+    this.eventBus.emit('game:state:changed', { 
+      oldState, 
+      newState 
+    })
 
     // Call exit callbacks for old state
     this.triggerStateCallbacks(oldState, newState)
@@ -165,6 +177,18 @@ export class GameManager {
     return this.gameData.level
   }
 
+  getHealth(): number {
+    return this.health
+  }
+
+  getMaxHealth(): number {
+    return this.maxHealth
+  }
+
+  setHealth(health: number): void {
+    this.health = Math.max(0, Math.min(health, this.maxHealth))
+  }
+
   setLevel(level: number): void {
     this.gameData.level = level
   }
@@ -191,11 +215,11 @@ export class GameManager {
   /**
    * Get/set custom game data
    */
-  getData(key: string): any {
+  getData(key: string): unknown {
     return this.gameData[key]
   }
 
-  setData(key: string, value: any): void {
+  setData(key: string, value: unknown): void {
     this.gameData[key] = value
   }
 
@@ -238,7 +262,7 @@ export class GameManager {
       this.gameData = saveData.gameData as GameStateData
       return true
     } catch (error) {
-      console.error('Failed to load game:', error)
+      logger.error('Failed to load game:', error)
       return false
     }
   }
@@ -259,12 +283,12 @@ export class GameManager {
   }
 
   private handleGameOver(): void {
-    console.log('Game Over! Final score:', this.gameData.score)
+    logger.info('Game Over! Final score:', this.gameData.score)
     // You can add more game over logic here
   }
 
   private handleVictory(): void {
-    console.log('Victory! Final score:', this.gameData.score)
+    logger.info('Victory! Final score:', this.gameData.score)
     // You can add more victory logic here
   }
 }

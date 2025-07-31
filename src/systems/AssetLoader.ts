@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 export interface AssetLoadProgress {
   url: string
@@ -165,16 +165,16 @@ export class AssetLoader {
     const promise = new Promise<THREE.Group>((resolve, reject) => {
       this.gltfLoader.load(
         url,
-        (gltf) => {
+        (gltf: any) => {
           this.models.set(key, gltf.scene)
           this.onAssetLoaded(url)
           this.loadingQueue.delete(url)
           resolve(gltf.scene.clone())
         },
-        (progress) => {
+        (progress: any) => {
           this.onLoadProgress(url, progress.loaded, progress.total)
         },
-        (error) => {
+        (error: any) => {
           this.loadingQueue.delete(url)
           reject(error)
         }
@@ -271,6 +271,10 @@ export class AssetLoader {
 
   getSound(key: string): AudioBuffer | undefined {
     return this.sounds.get(key)
+  }
+
+  addSound(key: string, buffer: AudioBuffer): void {
+    this.sounds.set(key, buffer)
   }
 
   getJSON(key: string): any {

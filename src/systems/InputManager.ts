@@ -481,4 +481,43 @@ export class InputManager {
     console.log(`Gamepad ${event.gamepad.index} disconnected`)
     this.gamepads.delete(event.gamepad.index)
   }
+
+  /**
+   * Clean up event listeners
+   */
+  dispose(): void {
+    // Remove keyboard listeners
+    window.removeEventListener('keydown', this.onKeyDown)
+    window.removeEventListener('keyup', this.onKeyUp)
+    
+    // Remove mouse listeners
+    window.removeEventListener('mousedown', this.onMouseDown)
+    window.removeEventListener('mouseup', this.onMouseUp)
+    window.removeEventListener('mousemove', this.onMouseMove)
+    window.removeEventListener('wheel', this.onMouseWheel)
+    window.removeEventListener('contextmenu', (e) => e.preventDefault())
+    
+    // Remove touch listeners
+    window.removeEventListener('touchstart', this.onTouchStart as EventListener)
+    window.removeEventListener('touchend', this.onTouchEnd as EventListener)
+    window.removeEventListener('touchmove', this.onTouchMove as EventListener)
+    
+    // Remove gamepad listeners
+    window.removeEventListener('gamepadconnected', this.onGamepadConnected)
+    window.removeEventListener('gamepaddisconnected', this.onGamepadDisconnected)
+    
+    // Clear all maps
+    this.keys.clear()
+    this.keysDown.clear()
+    this.keysUp.clear()
+    this.mouseButtons.clear()
+    this.mouseButtonsDown.clear()
+    this.mouseButtonsUp.clear()
+    this.touches.clear()
+    this.touchesDown.clear()
+    this.touchesUp.clear()
+    this.gamepads.clear()
+    this.actions.clear()
+    this.axes.clear()
+  }
 }

@@ -38,8 +38,13 @@ export class ObjectPool<T extends Poolable> {
       obj = this.createObject()
     } else {
       // Pool is exhausted, find and reuse the oldest active object
-      obj = this.activeObjects.values().next().value
-      this.release(obj)
+      const firstActive = this.activeObjects.values().next().value
+      if (firstActive) {
+        obj = firstActive
+        this.release(obj)
+      } else {
+        throw new Error('Pool exhausted and no active objects available')
+      }
     }
     
     obj.active = true

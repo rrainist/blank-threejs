@@ -1,4 +1,6 @@
-export type EventCallback<T = any> = (data: T) => void
+import { GameEventMap } from '../types/events'
+
+export type EventCallback<T = unknown> = (data: T) => void
 
 export class EventBus {
   private static instance: EventBus
@@ -16,7 +18,9 @@ export class EventBus {
   /**
    * Subscribe to an event
    */
-  on<T = any>(event: string, callback: EventCallback<T>): () => void {
+  on<K extends keyof GameEventMap>(event: K, callback: EventCallback<GameEventMap[K]>): () => void
+  on<T = unknown>(event: string, callback: EventCallback<T>): () => void
+  on(event: string, callback: EventCallback): () => void {
     if (!this.events.has(event)) {
       this.events.set(event, new Set())
     }
@@ -30,8 +34,10 @@ export class EventBus {
   /**
    * Subscribe to an event (only once)
    */
-  once<T = any>(event: string, callback: EventCallback<T>): void {
-    const wrapper = (data: T) => {
+  once<K extends keyof GameEventMap>(event: K, callback: EventCallback<GameEventMap[K]>): void
+  once<T = unknown>(event: string, callback: EventCallback<T>): void
+  once(event: string, callback: EventCallback): void {
+    const wrapper = (data: unknown) => {
       callback(data)
       this.off(event, wrapper)
     }
@@ -54,7 +60,9 @@ export class EventBus {
   /**
    * Emit an event
    */
-  emit<T = any>(event: string, data?: T): void {
+  emit<K extends keyof GameEventMap>(event: K, data: GameEventMap[K]): void
+  emit<T = unknown>(event: string, data?: T): void
+  emit(event: string, data?: unknown): void {
     const callbacks = this.events.get(event)
     if (callbacks) {
       callbacks.forEach(callback => {
@@ -116,6 +124,15 @@ export enum GameEvents {
   ENTITY_SPAWN = 'entity:spawn',
   ENTITY_DESTROY = 'entity:destroy',
   ENTITY_COLLISION = 'entity:collision',
+  
+  // Enemy events
+  ENEMY_SPAWN = 'enemy:spawn',
+  ENEMY_DEATH = 'enemy:death',
+  ENEMY_ATTACK = 'enemy:attack',
+  ENEMY_SHOOT = 'enemy:shoot',
+  
+  // Combat events
+  PROJECTILE_HIT = 'projectile:hit',
   
   // Item events
   ITEM_COLLECT = 'item:collect',

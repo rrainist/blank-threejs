@@ -1,7 +1,6 @@
 import * as THREE from 'three'
 import { GameObject } from './GameObject'
 import { Collider, ColliderType } from '../components'
-import { eventBus, GameEvents } from '../utils/EventBus'
 
 export class Collectible extends GameObject {
   private collider: Collider
@@ -61,7 +60,7 @@ export class Collectible extends GameObject {
     this.position.y = this.baseY + Math.sin(this.time * this.floatSpeed) * this.floatHeight
   }
 
-  collect(collector: GameObject): void {
+  collect(_collector: GameObject): void {
     // Visual effect - just scale down quickly
     if (this.mesh instanceof THREE.Mesh) {
       this.setScale(0.1)

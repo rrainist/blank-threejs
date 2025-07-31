@@ -21,9 +21,9 @@ export class Collider implements Component {
   gameObject!: GameObject
   
   type: ColliderType
-  size: THREE.Vector3 // For box
-  radius: number // For sphere/capsule
-  height: number // For capsule
+  size: THREE.Vector3 = new THREE.Vector3(1, 1, 1) // For box
+  radius = 0.5 // For sphere/capsule
+  height = 1 // For capsule
   offset: THREE.Vector3
   isTrigger = false
   
@@ -72,7 +72,7 @@ export class Collider implements Component {
     }
   }
 
-  update(deltaTime: number): void {
+  update(_deltaTime: number): void {
     // Update debug mesh position
     if (this.debugMesh) {
       this.debugMesh.position.copy(this.getWorldPosition())
@@ -144,7 +144,7 @@ export class Collider implements Component {
           Math.min(thisMax.z - otherMin.z, otherMax.z - thisMin.z)
         )
         
-        let normal = new THREE.Vector3()
+        const normal = new THREE.Vector3()
         let depth = Infinity
         
         if (overlap.x < overlap.y && overlap.x < overlap.z) {

@@ -17,7 +17,7 @@ export class Movement implements Component {
   gravity = -30
   isGrounded = true
   groundCheckDistance = 0.1
-  groundLevel = 1 // Player starts at y=1
+  groundLevel = 1 // Account for capsule geometry (radius + half height)
   
   // Current state
   velocity: THREE.Vector3
@@ -57,12 +57,22 @@ export class Movement implements Component {
     this.gameObject.position.y += this.velocity.y * deltaTime
     this.gameObject.position.z += this.velocity.z * deltaTime
     
-    // Ground check (simple version - you'd want raycasting in a real game)
-    if (this.gameObject.position.y <= this.groundLevel) {
+    // HARD CONSTRAINT: Never allow position below ground level
+    if (this.gameObject.position.y < this.groundLevel) {
       this.gameObject.position.y = this.groundLevel
-      this.velocity.y = 0
+      this.velocity.y = Math.max(0, this.velocity.y) // Only allow upward velocity
       this.isGrounded = true
       this.isJumping = false
+    }
+    
+    // Ground check with small threshold
+    const groundThreshold = 0.05
+    if (this.gameObject.position.y <= this.groundLevel + groundThreshold) {
+      this.isGrounded = true
+      if (this.velocity.y < 0) { // Stop downward velocity when grounded
+        this.velocity.y = 0
+        this.isJumping = false
+      }
     } else {
       this.isGrounded = false
     }
