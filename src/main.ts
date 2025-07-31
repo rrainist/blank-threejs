@@ -11,23 +11,27 @@ class ThreeApp {
   private animationId: number | null = null
 
   constructor() {
-    // Hide loading indicator
-    const loading = document.getElementById('loading')
-    if (loading) loading.style.display = 'none'
+    try {
+      // Initialize Three.js components
+      this.scene = createScene()
+      this.camera = this.createCamera()
+      this.renderer = this.createRenderer()
+      this.cube = this.createCube()
 
-    // Initialize Three.js components
-    this.scene = createScene()
-    this.camera = this.createCamera()
-    this.renderer = this.createRenderer()
-    this.cube = this.createCube()
+      // Hide loading indicator only after successful init
+      const loading = document.getElementById('loading')
+      if (loading) loading.style.display = 'none'
 
-    // Setup
-    this.setupScene()
-    this.setupEventListeners()
-    setupControls(this.camera, this.renderer.domElement)
+      // Setup
+      this.setupScene()
+      this.setupEventListeners()
+      setupControls(this.camera, this.renderer.domElement)
 
-    // Start animation loop
-    this.animate()
+      // Start animation loop
+      this.animate()
+    } catch (error) {
+      this.handleWebGLError(error)
+    }
   }
 
   private createCamera(): THREE.PerspectiveCamera {
@@ -113,6 +117,19 @@ class ThreeApp {
 
     // Render the scene
     this.renderer.render(this.scene, this.camera)
+  }
+
+  private handleWebGLError(error: unknown): void {
+    console.error('WebGL initialization failed:', error)
+    
+    const loading = document.getElementById('loading')
+    if (loading) {
+      loading.innerHTML = `
+        <div style="text-align: center;">
+          <h2 style="color: #ff6b6b; margin-bottom: 10px;">WebGL Not Available - turn on HW acceleration</h2>
+        </div>
+      `
+    }
   }
 
   public dispose(): void {
