@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { logger } from '../utils/Logger'
 
 export interface InputAction {
   name: string
@@ -229,7 +230,9 @@ export class InputManager {
     // Check keys
     if (action.keys) {
       for (const key of action.keys) {
-        if (this.keysDown.has(key)) return true
+        if (this.keysDown.has(key)) {
+          return true
+        }
       }
     }
     
@@ -473,12 +476,12 @@ export class InputManager {
   }
 
   private onGamepadConnected(event: GamepadEvent): void {
-    console.log(`Gamepad ${event.gamepad.index} connected: ${event.gamepad.id}`)
+    logger.info(`Gamepad ${event.gamepad.index} connected: ${event.gamepad.id}`)
     this.gamepads.set(event.gamepad.index, event.gamepad)
   }
 
   private onGamepadDisconnected(event: GamepadEvent): void {
-    console.log(`Gamepad ${event.gamepad.index} disconnected`)
+    logger.info(`Gamepad ${event.gamepad.index} disconnected`)
     this.gamepads.delete(event.gamepad.index)
   }
 

@@ -90,7 +90,7 @@ export class ErrorHandler {
   /**
    * Wrap a function with error handling
    */
-  wrap<T extends (...args: any[]) => any>(
+  wrap<T extends (...args: unknown[]) => unknown>(
     fn: T,
     context: ErrorContext
   ): T {

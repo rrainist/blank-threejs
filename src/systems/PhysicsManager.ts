@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { GameObject } from '../entities/GameObject'
 import { Collider, ColliderType, CollisionEvent } from '../components/Collider'
-import { eventBus, GameEvents } from '../utils/EventBus'
+import { eventBus } from '../utils/EventBus'
 
 export interface RaycastHit {
   object: GameObject

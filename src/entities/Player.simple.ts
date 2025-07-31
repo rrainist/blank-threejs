@@ -1,7 +1,6 @@
 import * as THREE from 'three'
 import { InputManager } from '../systems/InputManager'
 import { PLAYER } from '../constants/GameConstants'
-import { eventBus } from '../utils/EventBus'
 
 export class Player extends THREE.Group {
   // Properties
@@ -97,12 +96,6 @@ export class Player extends THREE.Group {
     if (this.input.isActionJustPressed('jump') && this.isGrounded) {
       this.velocity.y = this.jumpSpeed
       this.isGrounded = false
-      
-      // Emit jump event
-      eventBus.emit('player:jump', {
-        player: this,
-        timestamp: Date.now()
-      })
     }
     
     // Attack

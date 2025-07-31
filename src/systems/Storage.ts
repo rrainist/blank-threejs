@@ -1,5 +1,7 @@
+import { logger } from '../utils/Logger'
+
 export interface StorageData {
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export interface SaveData {
@@ -39,7 +41,7 @@ export class Storage {
       localStorage.setItem(fullKey, JSON.stringify(saveData))
       return true
     } catch (error) {
-      console.error('Failed to save data:', error)
+      logger.error('Failed to save data:', error)
       return false
     }
   }
@@ -58,13 +60,13 @@ export class Storage {
       
       // Version check for future compatibility
       if (saveData.version !== this.version) {
-        console.warn(`Save data version mismatch: ${saveData.version} vs ${this.version}`)
+        logger.warn(`Save data version mismatch: ${saveData.version} vs ${this.version}`)
         // In the future, you could add migration logic here
       }
       
       return saveData.data
     } catch (error) {
-      console.error('Failed to load data:', error)
+      logger.error('Failed to load data:', error)
       return null
     }
   }
@@ -78,7 +80,7 @@ export class Storage {
       localStorage.removeItem(fullKey)
       return true
     } catch (error) {
-      console.error('Failed to delete data:', error)
+      logger.error('Failed to delete data:', error)
       return false
     }
   }
@@ -117,7 +119,7 @@ export class Storage {
       keys.forEach(key => this.delete(key))
       return true
     } catch (error) {
-      console.error('Failed to clear all data:', error)
+      logger.error('Failed to clear all data:', error)
       return false
     }
   }
@@ -154,7 +156,7 @@ export class Storage {
         try {
           allData[key] = JSON.parse(item)
         } catch (error) {
-          console.error(`Failed to parse data for key ${key}:`, error)
+          logger.error(`Failed to parse data for key ${key}:`, error)
         }
       }
     })
@@ -173,7 +175,7 @@ export class Storage {
       })
       return true
     } catch (error) {
-      console.error('Failed to import data:', error)
+      logger.error('Failed to import data:', error)
       return false
     }
   }
@@ -181,27 +183,27 @@ export class Storage {
 
 // Convenience functions for common use cases
 export const GameStorage = {
-  saveGame(slot: number, gameState: any): boolean {
+  saveGame(slot: number, gameState: unknown): boolean {
     return Storage.getInstance().save(`save_${slot}`, gameState)
   },
 
-  loadGame(slot: number): any {
+  loadGame(slot: number): unknown {
     return Storage.getInstance().load(`save_${slot}`)
   },
 
-  saveSettings(settings: any): boolean {
+  saveSettings(settings: unknown): boolean {
     return Storage.getInstance().save('settings', settings)
   },
 
-  loadSettings(): any {
+  loadSettings(): unknown {
     return Storage.getInstance().load('settings')
   },
 
-  saveProgress(progress: any): boolean {
+  saveProgress(progress: unknown): boolean {
     return Storage.getInstance().save('progress', progress)
   },
 
-  loadProgress(): any {
+  loadProgress(): unknown {
     return Storage.getInstance().load('progress')
   }
 }

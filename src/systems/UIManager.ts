@@ -1,6 +1,7 @@
 import { EventBus } from '../utils/EventBus'
 import { InputManager } from './InputManager'
 import { GameManager, GameState } from './GameManager'
+import { logger } from '../utils/Logger'
 
 export interface UIElement {
   id: string
@@ -91,7 +92,7 @@ export class UIManager {
   showScreen(id: string, hideOthers = true): void {
     const screen = this.screens.get(id)
     if (!screen) {
-      console.warn(`Screen "${id}" not found`)
+      logger.warn(`Screen "${id}" not found`)
       return
     }
     
@@ -366,7 +367,7 @@ export class UIManager {
    */
   private setupEventListeners(): void {
     // Listen for game state changes
-    this.eventBus.on('game:state:changed', (event: any) => {
+    this.eventBus.on('game:state:changed', (event: { newState: GameState }) => {
       this.handleGameStateChange(event.newState)
     })
     
@@ -407,28 +408,28 @@ export class UIManager {
     // HUD
     this.createScreen('hud', {
       onShow: () => {
-        console.log('HUD shown')
+        logger.debug('HUD shown')
       }
     })
     
     // Main Menu
     this.createScreen('mainMenu', {
       onShow: () => {
-        console.log('Main menu shown')
+        logger.debug('Main menu shown')
       }
     })
     
     // Pause Menu
     this.createScreen('pauseMenu', {
       onShow: () => {
-        console.log('Pause menu shown')
+        logger.debug('Pause menu shown')
       }
     })
     
     // Game Over
     this.createScreen('gameOver', {
       onShow: () => {
-        console.log('Game over screen shown')
+        logger.debug('Game over screen shown')
       }
     })
   }

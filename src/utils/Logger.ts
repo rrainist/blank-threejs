@@ -32,7 +32,7 @@ export class Logger {
     this.logLevel = level
   }
 
-  private formatMessage(level: string, message: string, ...args: unknown[]): string {
+  private formatMessage(level: string, message: string, ..._args: unknown[]): string {
     const timestamp = this.enableTimestamp ? `[${new Date().toISOString()}] ` : ''
     return `${timestamp}[${level}] ${message}`
   }

@@ -1,7 +1,6 @@
 export { GameManager, GameState } from './GameManager'
 export { TimeManager } from './TimeManager'
 export { InputManager } from './InputManager'
-export { EntityManager } from './EntityManager'
 export { AssetLoader } from './AssetLoader'
 export { AudioManager } from './AudioManager'
 export { SceneManager } from './SceneManager'

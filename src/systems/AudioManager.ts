@@ -45,6 +45,27 @@ export class AudioManager {
     this.expandPool()
   }
 
+  /**
+   * Set volume directly without ramping to prevent Web Audio API errors
+   */
+  private safeSetVolume(audio: THREE.Audio | THREE.PositionalAudio, volume: number): void {
+    // Validate volume value to prevent linearRampToValueAtTime errors
+    if (!isFinite(volume) || isNaN(volume)) {
+      console.warn('Invalid volume value:', volume, 'defaulting to 0')
+      volume = 0
+    }
+    
+    // Clamp volume between 0 and 1
+    volume = Math.max(0, Math.min(1, volume))
+    
+    try {
+      // Use Three.js setVolume method (this should work for 2D audio)
+      audio.setVolume(volume)
+    } catch (error) {
+      console.warn('Failed to set volume:', error)
+    }
+  }
+
   static initialize(camera: THREE.Camera): AudioManager {
     if (!AudioManager.instance) {
       AudioManager.instance = new AudioManager(camera)
@@ -79,7 +100,7 @@ export class AudioManager {
     const audio = this.getAudioFromPool()
     audio.setBuffer(buffer)
     audio.setLoop(options.loop || false)
-    audio.setVolume((options.volume || 1) * this.sfxVolume * this.masterVolume)
+    this.safeSetVolume(audio, (options.volume || 1) * this.sfxVolume * this.masterVolume)
     
     if (!this.muted) {
       audio.play()
@@ -118,7 +139,7 @@ export class AudioManager {
     const audio = this.getPositionalAudioFromPool()
     audio.setBuffer(buffer)
     audio.setLoop(options.loop || false)
-    audio.setVolume((options.volume || 1) * this.sfxVolume * this.masterVolume)
+    this.safeSetVolume(audio, (options.volume || 1) * this.sfxVolume * this.masterVolume)
     audio.setRefDistance(options.refDistance || 10)
     audio.setRolloffFactor(options.rolloffFactor || 1)
     audio.setMaxDistance(options.maxDistance || 100)
@@ -162,13 +183,13 @@ export class AudioManager {
     const audio = this.getAudioFromPool()
     audio.setBuffer(buffer)
     audio.setLoop(options.loop !== false) // Default to loop for music
-    audio.setVolume(0) // Start at 0 for fade in
+    this.safeSetVolume(audio, 0) // Start at 0 for fade in
     
     if (!this.muted) {
       audio.play()
       await this.fadeIn(audio, (options.volume || 1) * this.musicVolume * this.masterVolume, this.musicFadeTime)
     } else {
-      audio.setVolume((options.volume || 1) * this.musicVolume * this.masterVolume)
+      this.safeSetVolume(audio, (options.volume || 1) * this.musicVolume * this.masterVolume)
     }
     
     this.currentMusic = audio
@@ -227,7 +248,7 @@ export class AudioManager {
   setMusicVolume(volume: number): void {
     this.musicVolume = Math.max(0, Math.min(1, volume))
     if (this.currentMusic) {
-      this.currentMusic.setVolume(this.musicVolume * this.masterVolume)
+      this.safeSetVolume(this.currentMusic, this.musicVolume * this.masterVolume)
     }
   }
 
@@ -328,11 +349,12 @@ export class AudioManager {
             case 'sawtooth':
               value = 2 * (tone.frequency * t % 1) - 1
               break
-            case 'triangle':
+            case 'triangle': {
               const period = 1 / tone.frequency
               const phase = (t % period) / period
               value = 4 * Math.abs(phase - 0.5) - 1
               break
+            }
           }
           
           // Apply envelope (simple fade in/out)
@@ -362,7 +384,7 @@ export class AudioManager {
         const t = Math.min(elapsed / duration, 1)
         const volume = startVolume + (targetVolume - startVolume) * t
         
-        audio.setVolume(volume)
+        this.safeSetVolume(audio, volume)
         
         if (t < 1) {
           requestAnimationFrame(fade)
@@ -385,7 +407,7 @@ export class AudioManager {
         const t = Math.min(elapsed / duration, 1)
         const volume = startVolume * (1 - t)
         
-        audio.setVolume(volume)
+        this.safeSetVolume(audio, volume)
         
         if (t < 1) {
           requestAnimationFrame(fade)
@@ -428,7 +450,8 @@ export class AudioManager {
   private returnAudioToPool(audio: THREE.Audio): void {
     audio.disconnect()
     if (audio.buffer) {
-      audio.setBuffer(null as any) // Clear buffer reference
+      // @ts-expect-error: Three.js Audio setBuffer doesn't officially accept null
+      audio.setBuffer(null) // Clear buffer reference
     }
     this.audioPool.push(audio)
   }
@@ -436,7 +459,8 @@ export class AudioManager {
   private returnPositionalAudioToPool(audio: THREE.PositionalAudio): void {
     audio.disconnect()
     if (audio.buffer) {
-      audio.setBuffer(null as any) // Clear buffer reference
+      // @ts-expect-error: Three.js Audio setBuffer doesn't officially accept null
+      audio.setBuffer(null) // Clear buffer reference
     }
     audio.position.set(0, 0, 0)
     this.positionalAudioPool.push(audio)
@@ -445,9 +469,9 @@ export class AudioManager {
   private updateAllVolumes(): void {
     this.activeAudio.forEach(audio => {
       if (audio === this.currentMusic) {
-        audio.setVolume(this.musicVolume * this.masterVolume)
+        this.safeSetVolume(audio, this.musicVolume * this.masterVolume)
       } else {
-        audio.setVolume(this.sfxVolume * this.masterVolume)
+        this.safeSetVolume(audio, this.sfxVolume * this.masterVolume)
       }
     })
   }

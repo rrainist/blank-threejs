@@ -4,19 +4,19 @@ import { handleResize } from './utils/resize'
 import { GameManager, GameState } from './systems/GameManager'
 import { TimeManager } from './systems/TimeManager'
 import { InputManager } from './systems/InputManager'
-import { EntityManager } from './systems/EntityManager'
 import { AssetLoader } from './systems/AssetLoader'
-import { AudioManager } from './systems/AudioManager'
+import { SimpleAudioManager } from './systems/SimpleAudioManager'
 import { SceneManager } from './systems/SceneManager'
 import { PhysicsManager } from './systems/PhysicsManager'
 import { UIManager } from './systems/UIManager'
 import { eventBus, GameEvents } from './utils/EventBus'
-import { ItemCollectEvent, PlayerDamageEvent, PlayerJumpEvent, PlayerAttackEvent, EnemyDeathEvent, EnemyAttackEvent } from './types/events'
+import { ItemCollectEvent, PlayerJumpEvent, PlayerAttackEvent, EnemyDeathEvent, EnemyAttackEvent } from './types/events'
 import { logger } from './utils/Logger'
-import { GAME, CAMERA, RENDERER, PHYSICS, SCENE, ENEMY } from './constants/GameConstants'
+import { ENEMY } from './constants/GameConstants'
 import { Player } from './entities/Player'
 import { Collectible } from './entities/Collectible'
 import { Enemy, EnemyType } from './entities/Enemy'
+import { ObjectPool } from './utils/ObjectPool'
 
 class GameApp {
   private scene!: THREE.Scene
@@ -29,9 +29,8 @@ class GameApp {
   private gameManager!: GameManager
   private timeManager!: TimeManager
   private inputManager!: InputManager
-  private entityManager!: EntityManager
   private assetLoader!: AssetLoader
-  private audioManager!: AudioManager
+  private audioManager!: SimpleAudioManager
   private sceneManager!: SceneManager
   private physicsManager!: PhysicsManager
   private uiManager!: UIManager
@@ -40,6 +39,7 @@ class GameApp {
   private player?: Player
   private score = 0
   private debugInfo?: HTMLDivElement
+  private collectiblePool!: ObjectPool<Collectible>
 
   constructor() {
     this.init()
@@ -54,6 +54,9 @@ class GameApp {
       
       // Initialize game systems
       await this.initializeSystems()
+      
+      // Initialize collectible pool
+      this.initializeCollectiblePool()
       
       // Hide loading indicator
       const loading = document.getElementById('loading')
@@ -81,9 +84,8 @@ class GameApp {
     this.timeManager = TimeManager.getInstance()
     this.inputManager = InputManager.getInstance()
     this.gameManager = GameManager.getInstance()
-    this.entityManager = EntityManager.initialize(this.scene)
     this.assetLoader = AssetLoader.getInstance()
-    this.audioManager = AudioManager.initialize(this.camera)
+    this.audioManager = SimpleAudioManager.initialize()
     this.sceneManager = SceneManager.initialize(this.scene, this.camera, this.renderer)
     this.physicsManager = PhysicsManager.initialize({
       gravity: new THREE.Vector3(0, -30, 0),
@@ -173,8 +175,18 @@ class GameApp {
       this.playDamageSound()
     })
     
-    eventBus.on('player:jump', (event: PlayerJumpEvent) => {
+    eventBus.on('player:jump', (_event: PlayerJumpEvent) => {
       this.playJumpSound()
+    })
+    
+    eventBus.on('player:land', () => {
+      // Play landing sound at player position
+      if (this.player) {
+        this.audioManager.play3D('land', this.player.position, {
+          volume: 0.2,
+          refDistance: 5
+        })
+      }
     })
     
     eventBus.on('player:attack', (event: PlayerAttackEvent) => {
@@ -200,6 +212,7 @@ class GameApp {
     })
     
     // Input events
+    this.inputManager.addAction('jump', { keys: [' ', 'Space'] })
     this.inputManager.addAction('restart', { keys: ['r', 'R'] })
     this.inputManager.addAction('debugSpawn', { keys: ['c', 'C'] })
     this.inputManager.addAction('mute', { keys: ['m', 'M'] })
@@ -254,8 +267,14 @@ class GameApp {
   }
 
   private playCollectSound(): void {
-    // Play at the collectible's position for 3D sound
-    const collectibles = this.entityManager.getEntitiesByTag('collectible')
+    // Find collectibles by traversing scene
+    const collectibles: THREE.Object3D[] = []
+    this.scene.traverse((object) => {
+      if (object.userData.type === 'collectible') {
+        collectibles.push(object)
+      }
+    })
+    
     if (collectibles.length > 0) {
       const lastCollectible = collectibles[collectibles.length - 1]
       this.audioManager.play3D('collect', lastCollectible.position, {
@@ -285,14 +304,25 @@ class GameApp {
   }
 
   private playJumpSound(): void {
-    // Play at player position
-    if (this.player) {
-      this.audioManager.play3D('jump', this.player.position, {
-        volume: 0.3,
-        refDistance: 5,
-        maxDistance: 15
-      })
-    }
+    // Use simple 2D audio - no AudioListener needed
+    this.audioManager.play2D('jump', { volume: 0.3 })
+  }
+  
+  private initializeCollectiblePool(): void {
+    // Create object pool for collectibles
+    this.collectiblePool = new ObjectPool<Collectible>(
+      () => {
+        const collectible = new Collectible(10, 0xffff00)
+        // Don't add to entity manager yet - wait until it's activated
+        return collectible
+      },
+      20, // Initial size
+      100, // Max size
+      (collectible) => {
+        // Additional reset logic if needed
+        collectible.position.set(0, -1000, 0) // Move off-screen
+      }
+    )
   }
 
   private setupScenes(): void {
@@ -346,6 +376,8 @@ class GameApp {
   }
 
   private createLevelGeometry(): void {
+    logger.debug('Creating level geometry...')
+    
     // Add larger ground plane
     const planeGeometry = new THREE.PlaneGeometry(50, 50)
     const planeMaterial = new THREE.MeshPhongMaterial({ color: 0x808080 })
@@ -353,7 +385,10 @@ class GameApp {
     plane.rotation.x = -Math.PI / 2
     plane.position.y = 0
     plane.receiveShadow = true
+    plane.name = 'Ground'
     this.scene.add(plane)
+    
+    logger.debug(`Added ground plane. Scene now has ${this.scene.children.length} children`)
     
     // Add some walls
     const wallGeometry = new THREE.BoxGeometry(50, 10, 1)
@@ -372,14 +407,22 @@ class GameApp {
       wall.rotation.set(rot[0], rot[1], rot[2])
       wall.castShadow = true
       wall.receiveShadow = true
+      wall.name = `Wall_${pos[0]}_${pos[2]}`
       this.scene.add(wall)
+    })
+    
+    logger.debug(`Level geometry complete. Scene has ${this.scene.children.length} children`)
+    
+    // Log all scene children
+    this.scene.children.forEach(child => {
+      logger.debug(`Scene child: ${child.name || child.type} at position ${child.position.x}, ${child.position.y}, ${child.position.z}`)
     })
   }
 
   private setupGame(): void {
     // Create player
     this.player = new Player()
-    this.entityManager.addEntity(this.player)
+    this.scene.add(this.player)
     
     // Create some collectibles
     this.spawnCollectibles()
@@ -408,17 +451,22 @@ class GameApp {
       [-15, 1, -15]
     ]
     
+    const colors = [0xffff00, 0xff00ff, 0x00ffff, 0xff8800, 0x00ff00]
+    
     positions.forEach((pos, index) => {
-      const collectible = new Collectible(10 + index * 5, 0xffff00)
-      collectible.setPosition(pos[0], pos[1], pos[2])
-      this.entityManager.addEntity(collectible)
+      const collectible = this.collectiblePool.get()
+      collectible.setValue(10 + index * 5)
+      collectible.setColor(colors[index % colors.length])
+      collectible.position.set(pos[0], pos[1], pos[2])
+      collectible.baseY = pos[1]
+      this.scene.add(collectible)
     })
   }
 
   private spawnEnemies(): void {
     // Spawn patrol enemies
     const patrolEnemy1 = new Enemy(EnemyType.PATROL, 0xff0000)
-    patrolEnemy1.setPosition(10, 1, 10)
+    patrolEnemy1.position.set(10, 1, 10)
     patrolEnemy1.setTarget(this.player!)
     patrolEnemy1.setPatrolPoints([
       new THREE.Vector3(10, 1, 10),
@@ -426,10 +474,10 @@ class GameApp {
       new THREE.Vector3(15, 1, 15),
       new THREE.Vector3(10, 1, 15)
     ])
-    this.entityManager.addEntity(patrolEnemy1)
+    this.scene.add(patrolEnemy1)
     
     const patrolEnemy2 = new Enemy(EnemyType.PATROL, 0xff0000)
-    patrolEnemy2.setPosition(-10, 1, -10)
+    patrolEnemy2.position.set(-10, 1, -10)
     patrolEnemy2.setTarget(this.player!)
     patrolEnemy2.setPatrolPoints([
       new THREE.Vector3(-10, 1, -10),
@@ -437,19 +485,19 @@ class GameApp {
       new THREE.Vector3(-15, 1, -15),
       new THREE.Vector3(-10, 1, -15)
     ])
-    this.entityManager.addEntity(patrolEnemy2)
+    this.scene.add(patrolEnemy2)
     
     // Spawn chaser enemy
     const chaserEnemy = new Enemy(EnemyType.CHASER, 0xff00ff)
-    chaserEnemy.setPosition(0, 1, -15)
+    chaserEnemy.position.set(0, 1, -15)
     chaserEnemy.setTarget(this.player!)
-    this.entityManager.addEntity(chaserEnemy)
+    this.scene.add(chaserEnemy)
     
     // Spawn shooter enemy
     const shooterEnemy = new Enemy(EnemyType.SHOOTER, 0x0000ff)
-    shooterEnemy.setPosition(-15, 1, 0)
+    shooterEnemy.position.set(-15, 1, 0)
     shooterEnemy.setTarget(this.player!)
-    this.entityManager.addEntity(shooterEnemy)
+    this.scene.add(shooterEnemy)
   }
 
   private createDebugUI(): void {
@@ -472,18 +520,26 @@ class GameApp {
     if (!this.debugInfo) return
     
     const fps = this.timeManager.getFps()
-    const entities = this.entityManager.getEntityCount()
+    // Count entities by traversing scene
+    let entityCount = 0
+    this.scene.traverse((object) => {
+      if (object.userData.type) {
+        entityCount++
+      }
+    })
     const state = this.gameManager.getCurrentState()
     const health = this.player ? `${this.player.getHealth()}/${this.player.getMaxHealth()}` : 'N/A'
     const currentScene = this.sceneManager.getCurrentSceneName() || 'None'
+    const poolStats = this.collectiblePool.getStats()
     
     this.debugInfo.innerHTML = `
       <div>FPS: ${fps}</div>
-      <div>Entities: ${entities}</div>
+      <div>Entities: ${entityCount}</div>
       <div>State: ${state}</div>
       <div>Scene: ${currentScene}</div>
       <div>Score: ${this.score}</div>
       <div>Health: ${health}</div>
+      <div>Collectible Pool: ${poolStats.activeCount}/${poolStats.totalCount} (${Math.round(poolStats.utilization * 100)}%)</div>
       <div style="margin-top: 10px;">
         <div>Controls:</div>
         <div>WASD/Arrows - Move</div>
@@ -502,8 +558,17 @@ class GameApp {
   }
 
   private resetGame(): void {
-    // Clear entities
-    this.entityManager.clear()
+    // Clear entities from scene
+    const entitiesToRemove: THREE.Object3D[] = []
+    this.scene.traverse((object) => {
+      if (object.userData.type && object.userData.type !== 'ground') {
+        entitiesToRemove.push(object)
+      }
+    })
+    
+    entitiesToRemove.forEach(entity => {
+      this.scene.remove(entity)
+    })
     
     // Reset score
     this.score = 0
@@ -516,8 +581,14 @@ class GameApp {
   private checkCollisions(): void {
     if (!this.player) return
     
-    // Simple distance-based collision for collectibles
-    const collectibles = this.entityManager.getEntitiesByTag('collectible')
+    // Find collectibles by traversing scene
+    const collectibles: Collectible[] = []
+    this.scene.traverse((object) => {
+      if (object.userData.type === 'collectible' && object instanceof Collectible) {
+        collectibles.push(object)
+      }
+    })
+    
     const playerPos = this.player.position
     
     collectibles.forEach(collectible => {
@@ -527,11 +598,19 @@ class GameApp {
         eventBus.emit(GameEvents.ITEM_COLLECT, {
           item: collectible,
           collector: this.player,
-          value: (collectible as Collectible).getValue()
+          value: collectible.value
         })
         
-        // Remove collectible
-        this.entityManager.removeEntity(collectible)
+        // Play collection effect
+        if (this.player) {
+          collectible.collect(this.player)
+        }
+        
+        // Return to pool after a short delay for particle effect
+        this.timeManager.setTimeout(() => {
+          this.scene.remove(collectible)
+          this.collectiblePool.release(collectible)
+        }, 0.5)
       }
     })
   }
@@ -564,9 +643,12 @@ class GameApp {
       const x = this.player.position.x + Math.cos(angle) * offset
       const z = this.player.position.z + Math.sin(angle) * offset
       
-      const collectible = new Collectible(50, 0x00ffff)
-      collectible.setPosition(x, 1, z)
-      this.entityManager.addEntity(collectible)
+      const collectible = this.collectiblePool.get()
+      collectible.setValue(50)
+      collectible.setColor(0x00ffff)
+      collectible.position.set(x, 1, z)
+      collectible.baseY = 1
+      this.scene.add(collectible)
     }
     
     if (this.inputManager.isActionJustPressed('mute')) {
@@ -607,7 +689,17 @@ class GameApp {
     
     // Update entities only when playing
     if (this.gameManager.isInState(GameState.PLAYING) && !isPaused) {
-      this.entityManager.update(deltaTime)
+      // Update player
+      if (this.player) {
+        this.player.update(deltaTime)
+      }
+      
+      // Update all scene objects that have update methods
+      this.scene.traverse((object) => {
+        if (object !== this.player && 'update' in object && typeof object.update === 'function') {
+          object.update(deltaTime)
+        }
+      })
       
       // Update physics
       this.physicsManager.update(deltaTime)
@@ -632,6 +724,12 @@ class GameApp {
     
     // Render the scene
     this.renderer.render(this.scene, this.camera)
+    
+    // Debug: Log scene info periodically
+    if (Math.random() < 0.001) { // Log occasionally
+      const meshes = this.scene.children.filter(child => child instanceof THREE.Mesh)
+      logger.debug(`Rendering scene with ${this.scene.children.length} children, ${meshes.length} meshes`)
+    }
     
     // Update debug info
     this.updateDebugInfo()

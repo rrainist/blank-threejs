@@ -1,8 +1,7 @@
 import * as THREE from 'three'
 import { EventBus } from '../utils/EventBus'
 import { AssetLoader } from './AssetLoader'
-import { EntityManager } from './EntityManager'
-import { GameManager, GameState } from './GameManager'
+import { GameManager } from './GameManager'
 
 export interface SceneConfig {
   name: string
@@ -40,7 +39,6 @@ export class SceneManager {
   private lights: THREE.Light[] = []
   
   private assetLoader: AssetLoader
-  private entityManager: EntityManager
   private gameManager: GameManager
   private eventBus: EventBus
 
@@ -50,7 +48,6 @@ export class SceneManager {
     this.renderer = renderer
     
     this.assetLoader = AssetLoader.getInstance()
-    this.entityManager = EntityManager.getInstance()
     this.gameManager = GameManager.getInstance()
     this.eventBus = EventBus.getInstance()
   }
@@ -170,13 +167,16 @@ export class SceneManager {
       this.skybox = undefined
     }
     
-    // Clear entities (but keep persistent ones like player)
-    const persistentTags = ['player', 'persistent']
-    const entitiesToRemove = this.entityManager.getAllEntities()
-      .filter(entity => !Array.from(entity.tags).some((tag: string) => persistentTags.includes(tag)))
+    // Clear scene objects (but keep persistent ones like player)
+    const objectsToRemove: THREE.Object3D[] = []
+    this.scene.traverse((object) => {
+      if (object.userData.type && object.userData.type !== 'player' && !object.userData.persistent) {
+        objectsToRemove.push(object)
+      }
+    })
     
-    entitiesToRemove.forEach(entity => {
-      this.entityManager.removeEntity(entity)
+    objectsToRemove.forEach(object => {
+      this.scene.remove(object)
     })
     
     // Clear fog
@@ -245,7 +245,7 @@ export class SceneManager {
   private async loadSkybox(urls: string[]): Promise<void> {
     const loader = new THREE.CubeTextureLoader()
     
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       loader.load(
         urls,
         (texture) => {

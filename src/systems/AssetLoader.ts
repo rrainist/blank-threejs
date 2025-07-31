@@ -33,10 +33,10 @@ export class AssetLoader {
   private textures: Map<string, THREE.Texture> = new Map()
   private models: Map<string, THREE.Group> = new Map()
   private sounds: Map<string, AudioBuffer> = new Map()
-  private jsonData: Map<string, any> = new Map()
+  private jsonData: Map<string, unknown> = new Map()
   
   // Loading state
-  private loadingQueue: Map<string, Promise<any>> = new Map()
+  private loadingQueue: Map<string, Promise<THREE.Texture | THREE.Group | AudioBuffer | unknown>> = new Map()
   private totalAssets = 0
   private loadedAssets = 0
   
@@ -66,7 +66,7 @@ export class AssetLoader {
    * Load a manifest of assets
    */
   async loadManifest(manifest: AssetManifest): Promise<void> {
-    const promises: Promise<any>[] = []
+    const promises: Promise<THREE.Texture | THREE.Group | AudioBuffer | unknown>[] = []
     
     // Count total assets
     this.totalAssets = 0
@@ -165,16 +165,16 @@ export class AssetLoader {
     const promise = new Promise<THREE.Group>((resolve, reject) => {
       this.gltfLoader.load(
         url,
-        (gltf: any) => {
+        (gltf) => {
           this.models.set(key, gltf.scene)
           this.onAssetLoaded(url)
           this.loadingQueue.delete(url)
           resolve(gltf.scene.clone())
         },
-        (progress: any) => {
+        (progress) => {
           this.onLoadProgress(url, progress.loaded, progress.total)
         },
-        (error: any) => {
+        (error) => {
           this.loadingQueue.delete(url)
           reject(error)
         }
@@ -219,7 +219,7 @@ export class AssetLoader {
     return promise
   }
 
-  async loadJSON(key: string, url: string): Promise<any> {
+  async loadJSON(key: string, url: string): Promise<unknown> {
     // Check cache
     if (this.jsonData.has(key)) {
       return this.jsonData.get(key)
@@ -230,7 +230,7 @@ export class AssetLoader {
       return this.loadingQueue.get(url)
     }
     
-    const promise = new Promise<any>((resolve, reject) => {
+    const promise = new Promise<unknown>((resolve, reject) => {
       this.fileLoader.load(
         url,
         (data) => {
@@ -277,7 +277,7 @@ export class AssetLoader {
     this.sounds.set(key, buffer)
   }
 
-  getJSON(key: string): any {
+  getJSON(key: string): unknown {
     return this.jsonData.get(key)
   }
 
@@ -366,7 +366,7 @@ export class AssetLoader {
     this.progressCallbacks.forEach(callback => callback(progress))
   }
 
-  private onAssetLoaded(url: string): void {
+  private onAssetLoaded(_url: string): void {
     this.loadedAssets++
     const overallPercent = (this.loadedAssets / this.totalAssets) * 100
     const progress: AssetLoadProgress = {
@@ -383,6 +383,7 @@ export class AssetLoader {
   }
 
   private onLoadError(error: Error): void {
+    // Using console.error for now to avoid dynamic import issues
     console.error('Asset loading error:', error)
     this.errorCallbacks.forEach(callback => callback(error))
   }

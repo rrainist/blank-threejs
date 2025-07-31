@@ -1,4 +1,5 @@
 import { GameEventMap } from '../types/events'
+import { logger } from './Logger'
 
 export type EventCallback<T = unknown> = (data: T) => void
 
@@ -69,7 +70,7 @@ export class EventBus {
         try {
           callback(data)
         } catch (error) {
-          console.error(`Error in event handler for "${event}":`, error)
+          logger.error(`Error in event handler for "${event}":`, error)
         }
       })
     }

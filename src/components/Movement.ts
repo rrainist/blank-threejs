@@ -57,12 +57,22 @@ export class Movement implements Component {
     this.gameObject.position.y += this.velocity.y * deltaTime
     this.gameObject.position.z += this.velocity.z * deltaTime
     
+    // Sync mesh position
+    if (this.gameObject.mesh) {
+      this.gameObject.mesh.position.copy(this.gameObject.position)
+    }
+    
     // HARD CONSTRAINT: Never allow position below ground level
     if (this.gameObject.position.y < this.groundLevel) {
       this.gameObject.position.y = this.groundLevel
       this.velocity.y = Math.max(0, this.velocity.y) // Only allow upward velocity
       this.isGrounded = true
       this.isJumping = false
+      
+      // Sync mesh position again after constraint
+      if (this.gameObject.mesh) {
+        this.gameObject.mesh.position.copy(this.gameObject.position)
+      }
     }
     
     // Ground check with small threshold

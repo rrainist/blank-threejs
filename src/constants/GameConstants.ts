@@ -44,6 +44,7 @@ export const GAME = {
 // Player Constants
 export const PLAYER = {
   MOVE_SPEED: 5,
+  JUMP_SPEED: 15,
   HEALTH: 100,
   ATTACK_DAMAGE: 20,
   ATTACK_RANGE: 2,
