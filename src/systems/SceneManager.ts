@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { logger } from '../utils/Logger'
 import { EventBus } from '../utils/EventBus'
 import { AssetLoader } from './AssetLoader'
 import { GameManager } from './GameManager'
@@ -83,7 +84,7 @@ export class SceneManager {
     }
 
     if (this.transitionInProgress) {
-      console.warn('Scene transition already in progress')
+      logger.warn('Scene transition already in progress')
       return
     }
 
@@ -254,7 +255,7 @@ export class SceneManager {
         },
         undefined,
         (error) => {
-          console.error('Failed to load skybox:', error)
+          logger.error('Failed to load skybox:', error)
           resolve() // Continue without skybox
         }
       )

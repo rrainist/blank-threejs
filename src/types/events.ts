@@ -1,6 +1,8 @@
-import { GameObject } from '../entities/GameObject'
 import { GameState } from '../systems/GameManager'
-import { Collider } from '../components/Collider'
+import { Player } from '../entities/Player'
+import { Enemy } from '../entities/Enemy'
+import { Collectible } from '../entities/Collectible'
+import * as THREE from 'three'
 
 // Base event interface
 export interface GameEvent {
@@ -18,58 +20,56 @@ export interface PlayerDamageEvent extends GameEvent {
   damage: number
   current: number
   max: number
-  source?: GameObject
+  source?: THREE.Object3D
 }
 
 export interface PlayerJumpEvent extends GameEvent {
-  player: GameObject
+  player: Player
 }
 
 export interface PlayerAttackEvent extends GameEvent {
-  player: GameObject
-  target: GameObject
+  player: Player
+  target: THREE.Object3D
   damage: number
 }
 
 // Enemy events
 export interface EnemyAttackEvent extends GameEvent {
-  enemy: GameObject
-  target: GameObject
+  enemy: Enemy
+  target: THREE.Object3D
   damage: number
 }
 
 export interface EnemyShootEvent extends GameEvent {
-  enemy: GameObject
-  target: GameObject
-  projectile: GameObject
+  enemy: Enemy
+  target: THREE.Object3D
+  projectile: THREE.Object3D
 }
 
 export interface EnemyDeathEvent extends GameEvent {
-  enemy: GameObject
+  enemy: Enemy
   position: THREE.Vector3
 }
 
 // Item events
 export interface ItemCollectEvent extends GameEvent {
-  item: GameObject
-  collector: GameObject
+  item: Collectible
+  collector: Player
   value: number
 }
 
-// Collision events
+// Collision events (simplified without Collider component)
 export interface CollisionEvent extends GameEvent {
-  objectA: GameObject
-  objectB: GameObject
-  colliderA: Collider
-  colliderB: Collider
+  objectA: THREE.Object3D
+  objectB: THREE.Object3D
   contactPoint?: THREE.Vector3
   contactNormal?: THREE.Vector3
 }
 
 // Projectile events
 export interface ProjectileHitEvent extends GameEvent {
-  projectile: GameObject
-  target: GameObject
+  projectile: THREE.Object3D
+  target: THREE.Object3D
   damage: number
 }
 

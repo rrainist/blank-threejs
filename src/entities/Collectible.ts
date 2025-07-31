@@ -4,6 +4,7 @@ export class Collectible extends THREE.Mesh {
   value: number
   baseY: number
   time: number = 0
+  active: boolean = false
   
   // Animation parameters
   rotationSpeed: number = 2

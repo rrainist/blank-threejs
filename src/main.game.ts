@@ -7,7 +7,6 @@ import { InputManager } from './systems/InputManager'
 import { AssetLoader } from './systems/AssetLoader'
 import { SimpleAudioManager } from './systems/SimpleAudioManager'
 import { SceneManager } from './systems/SceneManager'
-import { PhysicsManager } from './systems/PhysicsManager'
 import { UIManager } from './systems/UIManager'
 import { eventBus, GameEvents } from './utils/EventBus'
 import { ItemCollectEvent, PlayerJumpEvent, PlayerAttackEvent, EnemyDeathEvent, EnemyAttackEvent } from './types/events'
@@ -32,7 +31,6 @@ class GameApp {
   private assetLoader!: AssetLoader
   private audioManager!: SimpleAudioManager
   private sceneManager!: SceneManager
-  private physicsManager!: PhysicsManager
   private uiManager!: UIManager
   
   // Game state
@@ -87,10 +85,6 @@ class GameApp {
     this.assetLoader = AssetLoader.getInstance()
     this.audioManager = SimpleAudioManager.initialize()
     this.sceneManager = SceneManager.initialize(this.scene, this.camera, this.renderer)
-    this.physicsManager = PhysicsManager.initialize({
-      gravity: new THREE.Vector3(0, -30, 0),
-      enableDebugDraw: false
-    })
     this.uiManager = UIManager.initialize({
       debugMode: false
     })
@@ -183,8 +177,7 @@ class GameApp {
       // Play landing sound at player position
       if (this.player) {
         this.audioManager.play3D('land', this.player.position, {
-          volume: 0.2,
-          refDistance: 5
+          volume: 0.2
         })
       }
     })
@@ -192,8 +185,7 @@ class GameApp {
     eventBus.on('player:attack', (event: PlayerAttackEvent) => {
       // Play attack sound at player position
       this.audioManager.play3D('button', event.player.position, {
-        volume: 0.4,
-        refDistance: 5
+        volume: 0.4
       })
     })
     
@@ -278,9 +270,7 @@ class GameApp {
     if (collectibles.length > 0) {
       const lastCollectible = collectibles[collectibles.length - 1]
       this.audioManager.play3D('collect', lastCollectible.position, {
-        volume: 0.5,
-        refDistance: 5,
-        maxDistance: 20
+        volume: 0.5
       })
     } else {
       // Fallback to 2D sound
@@ -292,8 +282,7 @@ class GameApp {
     // Play at player position
     if (this.player) {
       this.audioManager.play3D('damage', this.player.position, {
-        volume: 0.7,
-        refDistance: 10
+        volume: 0.7
       })
     }
   }
@@ -602,9 +591,7 @@ class GameApp {
         })
         
         // Play collection effect
-        if (this.player) {
-          collectible.collect(this.player)
-        }
+        collectible.collect()
         
         // Return to pool after a short delay for particle effect
         this.timeManager.setTimeout(() => {
@@ -701,9 +688,6 @@ class GameApp {
         }
       })
       
-      // Update physics
-      this.physicsManager.update(deltaTime)
-      
       // Simple collision detection
       this.checkCollisions()
       
@@ -770,7 +754,6 @@ class GameApp {
     }
     
     // Clean up systems
-    this.entityManager.clear()
     this.inputManager.dispose()
     this.timeManager.reset()
     eventBus.clear()

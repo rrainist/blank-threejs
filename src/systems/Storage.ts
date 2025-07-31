@@ -184,7 +184,7 @@ export class Storage {
 // Convenience functions for common use cases
 export const GameStorage = {
   saveGame(slot: number, gameState: unknown): boolean {
-    return Storage.getInstance().save(`save_${slot}`, gameState)
+    return Storage.getInstance().save(`save_${slot}`, gameState as StorageData)
   },
 
   loadGame(slot: number): unknown {
@@ -192,7 +192,7 @@ export const GameStorage = {
   },
 
   saveSettings(settings: unknown): boolean {
-    return Storage.getInstance().save('settings', settings)
+    return Storage.getInstance().save('settings', settings as StorageData)
   },
 
   loadSettings(): unknown {
@@ -200,7 +200,7 @@ export const GameStorage = {
   },
 
   saveProgress(progress: unknown): boolean {
-    return Storage.getInstance().save('progress', progress)
+    return Storage.getInstance().save('progress', progress as StorageData)
   },
 
   loadProgress(): unknown {

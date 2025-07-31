@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { logger } from '../utils/Logger'
 
 export interface AssetLoadProgress {
   url: string
@@ -124,7 +125,7 @@ export class AssetLoader {
     
     // Check if already loading
     if (this.loadingQueue.has(url)) {
-      return this.loadingQueue.get(url)
+      return this.loadingQueue.get(url) as Promise<THREE.Texture>
     }
     
     const promise = new Promise<THREE.Texture>((resolve, reject) => {
@@ -158,7 +159,7 @@ export class AssetLoader {
     
     // Check if already loading
     if (this.loadingQueue.has(url)) {
-      const model = await this.loadingQueue.get(url)
+      const model = await this.loadingQueue.get(url) as THREE.Group
       return model.clone()
     }
     
@@ -193,7 +194,7 @@ export class AssetLoader {
     
     // Check if already loading
     if (this.loadingQueue.has(url)) {
-      return this.loadingQueue.get(url)
+      return this.loadingQueue.get(url) as Promise<AudioBuffer>
     }
     
     const promise = new Promise<AudioBuffer>((resolve, reject) => {
@@ -383,8 +384,7 @@ export class AssetLoader {
   }
 
   private onLoadError(error: Error): void {
-    // Using console.error for now to avoid dynamic import issues
-    console.error('Asset loading error:', error)
+    logger.error('Asset loading error:', error)
     this.errorCallbacks.forEach(callback => callback(error))
   }
 

@@ -1,5 +1,4 @@
 import * as THREE from 'three'
-import { ENEMY } from '../constants/GameConstants'
 
 export enum EnemyType {
   PATROL = 'patrol',
@@ -14,7 +13,7 @@ export class Enemy extends THREE.Group {
   maxHealth: number
   speed: number
   attackDamage: number
-  attackRange: number
+  attackRange: number = 2
   attackCooldown: number
   lastAttackTime: number = 0
   detectionRange: number = 10
@@ -59,7 +58,6 @@ export class Enemy extends THREE.Group {
     }
     
     this.maxHealth = this.health
-    this.attackRange = this.attackRange || 2
     this.attackCooldown = 1
     
     // Create visual based on type

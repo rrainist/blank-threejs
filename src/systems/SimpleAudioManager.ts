@@ -1,3 +1,6 @@
+import * as THREE from 'three'
+import { logger } from '../utils/Logger'
+
 export interface SoundOptions {
   volume?: number
   loop?: boolean
@@ -53,7 +56,7 @@ export class SimpleAudioManager {
     
     const soundUrl = soundUrls[soundKey]
     if (!soundUrl) {
-      console.warn(`Sound key '${soundKey}' not found`)
+      logger.warn(`Sound key '${soundKey}' not found`)
       return null
     }
     
@@ -66,7 +69,7 @@ export class SimpleAudioManager {
     
     if (!this.muted && options.autoplay !== false) {
       audio.play().catch(error => {
-        console.warn(`Failed to play audio '${soundKey}':`, error)
+        logger.warn(`Failed to play audio '${soundKey}':`, error)
       })
     }
     
@@ -76,7 +79,7 @@ export class SimpleAudioManager {
   /**
    * Alias for play2D - for compatibility with existing code
    */
-  play3D(soundKey: string, position: any, options: SoundOptions = {}): HTMLAudioElement | null {
+  play3D(soundKey: string, position: THREE.Vector3, options: SoundOptions = {}): HTMLAudioElement | null {
     // Just play as 2D sound - ignore position since we don't need 3D audio
     return this.play2D(soundKey, options)
   }
@@ -100,7 +103,7 @@ export class SimpleAudioManager {
       try {
         await audio.play()
       } catch (error) {
-        console.warn('Failed to play music:', error)
+        logger.warn('Failed to play music:', error)
       }
     }
     
@@ -143,7 +146,7 @@ export class SimpleAudioManager {
         this.currentMusic.pause()
       } else {
         this.currentMusic.play().catch(error => {
-          console.warn('Failed to resume music:', error)
+          logger.warn('Failed to resume music:', error)
         })
       }
     }
