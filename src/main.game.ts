@@ -904,19 +904,28 @@ class GameApp {
     // Set up ray from camera through mouse position
     this.raycaster.setFromCamera(this.mouse, this.camera)
     
-    // Create a plane at player height for ray intersection
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1) // y = 1 plane
+    // For orthographic camera, we need to handle the ray differently
+    // Use ground plane (y = 0) for intersection
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0) // y = 0 plane (ground)
     const intersectPoint = new THREE.Vector3()
-    this.raycaster.ray.intersectPlane(plane, intersectPoint)
     
-    // Calculate direction from player to click point
-    const direction = new THREE.Vector3()
-    direction.subVectors(intersectPoint, this.player.position)
-    direction.y = 0 // Keep bullets horizontal
-    direction.normalize()
+    // Check if ray intersects the ground plane
+    const hasIntersection = this.raycaster.ray.intersectPlane(plane, intersectPoint)
     
-    // Shoot bullet
-    this.player.shoot(direction)
+    if (hasIntersection && intersectPoint) {
+      // Calculate direction from player to click point
+      const direction = new THREE.Vector3()
+      // Use player's center position (accounting for capsule height)
+      const playerCenter = this.player.position.clone()
+      playerCenter.y = 1 // Approximate center height of player
+      
+      direction.subVectors(intersectPoint, playerCenter)
+      direction.y = 0 // Keep bullets horizontal
+      direction.normalize()
+      
+      // Shoot bullet
+      this.player.shoot(direction)
+    }
   }
   
   private checkAttackCollisions(attacker: Player): void {

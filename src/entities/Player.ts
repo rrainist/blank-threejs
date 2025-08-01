@@ -243,10 +243,13 @@ export class Player extends THREE.Group {
     
     this.lastShootTime = now
     
-    // Emit shoot event with origin and direction
+    // Emit shoot event with origin at player's center height
+    const shootOrigin = this.position.clone()
+    shootOrigin.y = 1 // Set to player's approximate center height
+    
     eventBus.emit('player:shoot', {
       player: this,
-      origin: this.position.clone(),
+      origin: shootOrigin,
       direction: direction.clone()
     })
     

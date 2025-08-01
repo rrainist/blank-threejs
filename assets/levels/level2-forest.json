@@ -49,8 +49,7 @@
       "type": "box",
       "name": "Wall_West",
       "position": [-25, 5, 0],
-      "rotation": [0, 1.5708, 0],
-      "size": [50, 10, 1],
+      "size": [1, 10, 50],
       "color": "0x4a4a4a",
       "physics": {
         "isStatic": true,
@@ -61,8 +60,7 @@
       "type": "box",
       "name": "Wall_East",
       "position": [25, 5, 0],
-      "rotation": [0, -1.5708, 0],
-      "size": [50, 10, 1],
+      "size": [1, 10, 50],
       "color": "0x4a4a4a",
       "physics": {
         "isStatic": true,
