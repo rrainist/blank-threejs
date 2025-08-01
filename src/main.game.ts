@@ -24,7 +24,7 @@ import { Bullet } from './entities/Bullet'
 
 class GameApp {
   private scene!: THREE.Scene
-  private camera!: THREE.OrthographicCamera
+  private camera!: THREE.Camera
   private renderer!: THREE.WebGLRenderer
   private animationId: number | null = null
   private resizeHandler!: () => void
@@ -103,6 +103,10 @@ class GameApp {
       debugMode: false
     })
     this.cameraController = CameraController.initialize(this.camera)
+    
+    // Update camera reference to use the controller's active camera
+    this.camera = this.cameraController.getCamera()
+    
     this.levelManager = LevelManager.initialize(this.scene)
     this.physicsSystem = PhysicsSystem.getInstance()
     this.effectsSystem = EffectsSystem.initialize(this.scene, this.camera, this.renderer)
@@ -127,16 +131,16 @@ class GameApp {
     this.uiManager.createPauseMenu()
   }
 
-  private createCamera(): THREE.OrthographicCamera {
+  private createCamera(): THREE.Camera {
     const aspect = window.innerWidth / window.innerHeight
-    const frustumSize = 20
+    const frustumSize = 40  // Good balance for viewing distance
     const camera = new THREE.OrthographicCamera(
       frustumSize * aspect / -2,
       frustumSize * aspect / 2,
       frustumSize / 2,
       frustumSize / -2,
-      0.1,
-      1000
+      0.01,    // Near plane: much closer to eliminate near clipping
+      10000    // Far plane: much farther to eliminate far clipping
     )
     camera.position.set(5, 8, 10)
     camera.lookAt(0, 0, 0)
@@ -146,13 +150,20 @@ class GameApp {
   private createRenderer(): THREE.WebGLRenderer {
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true,
-      alpha: true 
+      alpha: false  // Disable alpha to prevent transparency issues
     })
     renderer.setSize(window.innerWidth, window.innerHeight)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.outputColorSpace = THREE.SRGBColorSpace
+    renderer.setClearColor(0x87ceeb, 1.0) // Sky blue background
+    
+    // Ensure no scissor test is enabled
+    renderer.setScissorTest(false)
+    
+    // Explicitly set viewport to full window
+    renderer.setViewport(0, 0, window.innerWidth, window.innerHeight)
     
     const app = document.getElementById('app')
     if (app) {
@@ -166,7 +177,12 @@ class GameApp {
   private setupEventListeners(): void {
     // Window resize
     this.resizeHandler = () => {
-      handleResize(this.camera, this.renderer)
+      this.cameraController.onResize()
+      this.camera = this.cameraController.getCamera() // Update camera reference
+      this.renderer.setSize(window.innerWidth, window.innerHeight)
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+      // Update viewport on resize
+      this.renderer.setViewport(0, 0, window.innerWidth, window.innerHeight)
     }
     window.addEventListener('resize', this.resizeHandler)
     
@@ -1038,8 +1054,12 @@ class GameApp {
     // Update UI
     this.uiManager.update(deltaTime)
     
-    // Render the scene
-    this.renderer.render(this.scene, this.camera)
+    // Update matrix world before rendering
+    this.scene.updateMatrixWorld(true)
+    
+    // Clear and render the scene
+    this.renderer.clear()
+    this.renderer.render(this.scene, this.cameraController.getCamera())
     
     // Debug: Log scene info periodically
     if (Math.random() < 0.001) { // Log occasionally

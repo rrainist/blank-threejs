@@ -250,10 +250,14 @@ export class LevelManager {
     // Create a thin box instead of a plane for better physics collision
     const geometry = new THREE.BoxGeometry(ground.size[0], 0.2, ground.size[1])
     const material = new THREE.MeshPhongMaterial({
-      color: ground.color || 0x228B22  // Forest green instead of gray
+      color: typeof ground.color === 'string' ? parseInt(ground.color) : (ground.color || 0x228B22)  // Parse hex string to number
     })
     
     const mesh = new THREE.Mesh(geometry, material)
+    
+    // Disable frustum culling to prevent clipping issues
+    mesh.frustumCulled = false
+    
     // Position the box so its top surface is at y=0
     mesh.position.y = -0.1
     if (ground.position) {
@@ -364,6 +368,9 @@ export class LevelManager {
     
     // Create mesh
     const mesh = new THREE.Mesh(geometry, material)
+    
+    // Disable frustum culling to fix clipping issues with buildings/walls
+    mesh.frustumCulled = false
     
     // Set transform
     mesh.position.fromArray(objDef.position)

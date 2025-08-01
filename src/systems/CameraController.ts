@@ -32,6 +32,8 @@ export class CameraController {
   private static instance: CameraController
   
   private camera: THREE.Camera
+  private orthographicCamera: THREE.OrthographicCamera | null = null
+  private perspectiveCamera: THREE.PerspectiveCamera | null = null
   private inputManager: InputManager
   private configManager: ConfigurationManager
   
@@ -79,6 +81,9 @@ export class CameraController {
     this.inputManager = InputManager.getInstance()
     this.configManager = ConfigurationManager.getInstance()
     
+    // Create both camera types
+    this.createCameras()
+    
     this.setupInputHandlers()
     this.loadConfiguration()
     
@@ -87,6 +92,33 @@ export class CameraController {
     this.desiredPosition.copy(camera.position)
     
     logger.info('CameraController initialized')
+  }
+  
+  private createCameras(): void {
+    const aspectRatio = window.innerWidth / window.innerHeight
+    
+    // Create orthographic camera with proper world unit scaling
+    const viewHeight = 40  // Height in world units - covers the game level appropriately
+    const viewWidth = viewHeight * aspectRatio
+    this.orthographicCamera = new THREE.OrthographicCamera(
+      -viewWidth / 2,   // left
+      viewWidth / 2,    // right  
+      viewHeight / 2,   // top
+      -viewHeight / 2,  // bottom
+      0.1,              // near
+      10000             // far
+    )
+    
+    // Create perspective camera
+    this.perspectiveCamera = new THREE.PerspectiveCamera(75, aspectRatio, 0.01, 10000)
+    
+    // Copy current camera position to both
+    if (this.camera) {
+      this.orthographicCamera.position.copy(this.camera.position)
+      this.perspectiveCamera.position.copy(this.camera.position)
+      this.orthographicCamera.rotation.copy(this.camera.rotation)
+      this.perspectiveCamera.rotation.copy(this.camera.rotation)
+    }
   }
   
   static initialize(camera: THREE.Camera): CameraController {
@@ -119,6 +151,8 @@ export class CameraController {
     this.inputManager.addAction('cameraMode1', { keys: ['1'] })
     this.inputManager.addAction('cameraMode2', { keys: ['2'] })
     this.inputManager.addAction('cameraMode3', { keys: ['3'] })
+    this.inputManager.addAction('cameraOrtho', { keys: ['4'] })
+    this.inputManager.addAction('cameraPerspective', { keys: ['5'] })
     this.inputManager.addAction('cameraReset', { keys: ['0'] })
   }
   
@@ -150,8 +184,8 @@ export class CameraController {
         break
       
       case CameraMode.THIRD_PERSON:
-        this.offset.set(0, 5, 10)
-        this.distance = 10
+        this.offset.set(0, 20, 10)  // Much higher view to see more of the scene
+        this.distance = 30
         break
       
       case CameraMode.ORBITAL:
@@ -173,6 +207,77 @@ export class CameraController {
    */
   setTarget(target: THREE.Object3D | null): void {
     this.target = target || undefined
+  }
+  
+  /**
+   * Switch to orthographic camera
+   */
+  switchToOrthographic(): void {
+    if (this.orthographicCamera) {
+      // Copy current camera state
+      this.orthographicCamera.position.copy(this.camera.position)
+      this.orthographicCamera.rotation.copy(this.camera.rotation)
+      this.orthographicCamera.quaternion.copy(this.camera.quaternion)
+      this.orthographicCamera.up.copy(this.camera.up)
+      
+      // Switch camera
+      this.camera = this.orthographicCamera
+      this.currentPosition.copy(this.camera.position)
+      this.desiredPosition.copy(this.camera.position)
+      
+      logger.info('Switched to orthographic camera')
+      logger.debug(`Ortho camera position: ${this.camera.position.toArray()}`)
+      logger.debug(`Ortho camera rotation: ${this.camera.rotation.toArray()}`)
+    }
+  }
+  
+  /**
+   * Switch to perspective camera
+   */
+  switchToPerspective(): void {
+    if (this.perspectiveCamera) {
+      // Copy current camera state
+      this.perspectiveCamera.position.copy(this.camera.position)
+      this.perspectiveCamera.rotation.copy(this.camera.rotation)
+      
+      // Switch camera
+      this.camera = this.perspectiveCamera
+      this.currentPosition.copy(this.camera.position)
+      this.desiredPosition.copy(this.camera.position)
+      
+      logger.info('Switched to perspective camera')
+    }
+  }
+  
+  /**
+   * Get current active camera
+   */
+  getCamera(): THREE.Camera {
+    return this.camera
+  }
+  
+  /**
+   * Handle window resize for both cameras
+   */
+  onResize(): void {
+    const aspect = window.innerWidth / window.innerHeight
+    
+    // Update perspective camera
+    if (this.perspectiveCamera) {
+      this.perspectiveCamera.aspect = aspect
+      this.perspectiveCamera.updateProjectionMatrix()
+    }
+    
+    // Update orthographic camera with proper world unit scaling
+    if (this.orthographicCamera) {
+      const viewHeight = 40  // Match the viewHeight used in createCameras
+      const viewWidth = viewHeight * aspect
+      this.orthographicCamera.left = -viewWidth / 2
+      this.orthographicCamera.right = viewWidth / 2
+      this.orthographicCamera.top = viewHeight / 2
+      this.orthographicCamera.bottom = -viewHeight / 2
+      this.orthographicCamera.updateProjectionMatrix()
+    }
   }
   
   /**
@@ -206,6 +311,10 @@ export class CameraController {
       this.setMode(CameraMode.THIRD_PERSON)
     } else if (this.inputManager.isActionJustPressed('cameraMode3')) {
       this.setMode(CameraMode.ORBITAL)
+    } else if (this.inputManager.isActionJustPressed('cameraOrtho')) {
+      this.switchToOrthographic()
+    } else if (this.inputManager.isActionJustPressed('cameraPerspective')) {
+      this.switchToPerspective()
     }
     
     switch (this.mode) {

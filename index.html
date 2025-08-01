@@ -21,6 +21,16 @@
         position: relative;
         width: 100vw;
         height: 100vh;
+        overflow: visible; /* Ensure no clipping */
+      }
+      
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100% !important;
+        height: 100% !important;
+        display: block;
       }
       
       .info {

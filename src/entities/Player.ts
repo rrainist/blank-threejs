@@ -88,7 +88,9 @@ export class Player extends THREE.Group {
     // Configure physics body
     if (this.rigidBody) {
       // Set linear damping for natural deceleration
-      this.rigidBody.body.linearDamping = 0.1      // Disable sleep to ensure player is always responsive
+      this.rigidBody.body.linearDamping = 0.1
+      
+      // Disable sleep to ensure player is always responsive
       this.rigidBody.body.allowSleep = false
     }
     

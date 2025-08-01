@@ -9,7 +9,7 @@ export function handleResize(camera: THREE.PerspectiveCamera | THREE.Orthographi
     camera.updateProjectionMatrix()
   } else if (camera instanceof THREE.OrthographicCamera) {
     // Update orthographic camera
-    const frustumSize = 20 // Should match the frustumSize in createCamera
+    const frustumSize = 40 // Must match the frustumSize in createCamera
     camera.left = frustumSize * aspect / -2
     camera.right = frustumSize * aspect / 2
     camera.top = frustumSize / 2
