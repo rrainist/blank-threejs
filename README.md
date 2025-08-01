@@ -1,208 +1,168 @@
-# Modern Three.js Template
+# Three.js Game Development Template
 
-A modern, production-ready Three.js template with TypeScript, Vite, and best practices built-in.
+A comprehensive TypeScript template for building 3D games with Three.js. Features a complete game framework with physics, audio, input handling, and more - ready for rapid prototyping or production games.
 
-## 🚀 Features
+## 🎮 What is This?
 
-- **Modern Stack**: Three.js v0.160+ with TypeScript
-- **Fast Development**: Vite for instant HMR and fast builds
-- **Type Safety**: Full TypeScript support with strict configuration
-- **Responsive**: Automatically handles window resizing and mobile touch
-- **Optimized**: Production builds with tree-shaking and minification
-- **Clean Architecture**: Modular code structure for maintainability
-- **Modern JavaScript**: ES2020+ features and imports
-- **Linting**: ESLint configuration for code quality
+This is a **game-ready starter template** that provides all the boilerplate systems you need to build a 3D game:
+- Complete game framework with 12+ integrated systems
+- Full example game demonstrating all features
+- TypeScript + Vite for modern development
+- Designed to be completely replaced with YOUR game
 
-## 📦 What's Included
+Think of it as "Create React App" but for Three.js games - it gives you a solid foundation to build on.
 
-- Rotating animated cube with realistic lighting
-- Responsive camera controls
-- Touch support for mobile devices
-- Ground plane with shadows
-- Ambient and directional lighting
-- Automatic cleanup and memory management
-- Loading indicator
+## 🚀 Quick Start
 
-## 🛠️ Getting Started
+```bash
+# Clone the template
+git clone [this-repo] my-awesome-game
+cd my-awesome-game
 
-### Prerequisites
+# Install dependencies
+npm install
 
-- Node.js 16+ 
-- npm, yarn, or pnpm
+# Start with simple demo
+npm run dev
 
-### Installation
+# Or start with full game example
+npm run dev:game
+```
 
-1. **Clone or download this template**
+## 🎯 Two Ways to Start
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   # or
-   yarn install
-   # or
-   pnpm install
-   ```
+### 1. Simple Demo (`main.ts`)
+A minimal rotating cube scene - perfect for starting from scratch.
 
-3. **Start development server**
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   # or
-   pnpm dev
-   ```
+### 2. Full Game Example (`main.game.ts`) 
+A complete game with:
+- Player character with WASD movement
+- Enemy AI (patrol, chase, shoot behaviors)  
+- Physics and collision detection
+- Collectibles and scoring
+- Multiple camera modes
+- Sound effects and music
+- Save/load system
+- UI and menus
 
-4. **Open your browser**
-   - Development server will automatically open at `http://localhost:3000`
+## 📦 Built-in Game Systems
 
-## 📋 Available Scripts
+### Core Systems
+- **GameManager** - Game states, scoring, lives, save/load
+- **InputManager** - Keyboard, mouse, gamepad, touch support
+- **PhysicsSystem** - Collision detection, forces, raycasting
+- **AudioManager** - 2D/3D sound, music, volume control
+- **CameraController** - Multiple camera modes, smooth following
+- **EffectsSystem** - Particles, screen shake, visual effects
 
-- `npm run dev` - Start development server with HMR
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build locally
-- `npm run lint` - Run ESLint on source files
+### Utility Systems  
+- **TimeManager** - Delta time, timers, slow motion
+- **LevelManager** - JSON-based level loading
+- **EventBus** - Decoupled communication
+- **ObjectPool** - Efficient object reuse
+- **Storage** - Save game persistence
+- **UIManager** - Menus, HUD, responsive UI
 
-## 📂 Project Structure
+## 🏗️ Project Structure
 
 ```
 src/
-├── main.ts           # Main application entry point
-├── scene.ts          # Scene creation and configuration
-├── controls.ts       # Mouse and touch controls
-└── utils/
-    └── resize.ts     # Window resize handling
+├── main.ts              # Simple starter
+├── main.game.ts         # Full game example
+├── systems/             # Game framework systems
+│   ├── GameManager.ts
+│   ├── InputManager.ts
+│   ├── PhysicsSystem.ts
+│   └── ... (12+ systems)
+├── entities/            # Game objects  
+│   ├── Player.ts
+│   ├── Enemy.ts
+│   └── Collectible.ts
+├── utils/               # Utilities
+└── constants/           # Game constants
 ```
 
-## 🎯 Usage
+## 🎨 Build Your Own Game
 
-### Basic Scene Setup
+**This template is meant to be modified!** Here's how:
 
-The template provides a clean, modular structure:
-
+### Option 1: Start Fresh
 ```typescript
-import * as THREE from 'three'
-import { createScene } from './scene'
-
-// Initialize Three.js components
-const scene = createScene()
-const camera = new THREE.PerspectiveCamera(/* ... */)
-const renderer = new THREE.WebGLRenderer(/* ... */)
+// Replace main.ts with your game
+import { GameManager } from './systems/GameManager'
+import { InputManager } from './systems/InputManager'
+// Use only what you need!
 ```
 
-### Adding New Objects
+### Option 2: Modify the Example
+- Change player from shooter to platformer character
+- Replace enemies with racing opponents
+- Turn collectibles into power-ups
+- Make it YOUR game!
 
-Add new 3D objects to your scene:
+### Option 3: Mix and Match
+- Keep the systems you like
+- Delete what you don't need  
+- Add your own custom systems
 
-```typescript
-// In your main.ts or scene.ts
-const geometry = new THREE.SphereGeometry(1, 32, 32)
-const material = new THREE.MeshPhongMaterial({ color: 0x00ff00 })
-const sphere = new THREE.Mesh(geometry, material)
-scene.add(sphere)
-```
+## 🔧 Key Features
 
-### Customizing Controls
+- **Modern Stack**: Three.js 0.160+, TypeScript, Vite
+- **Game-Ready**: Not just a rendering demo - full game systems
+- **Flexible Architecture**: Direct Three.js approach, no framework lock-in
+- **Performance**: Object pooling, frustum culling, LOD support
+- **Developer Experience**: Hot reload, TypeScript intellisense
+- **Production Ready**: Optimized builds, proper cleanup
 
-Modify `src/controls.ts` to change interaction behavior:
+## 📚 Documentation
 
-```typescript
-// Adjust rotation sensitivity
-targetRotationX += deltaY * 0.005  // Slower rotation
-targetRotationY += deltaX * 0.005
-```
+See [CLAUDE.md](./CLAUDE.md) for comprehensive documentation on:
+- How to use each system
+- Common game patterns
+- Performance tips
+- Architecture examples
 
-## 🔧 Configuration
+## 🎮 Example Game Controls
 
-### Vite Configuration
-
-Customize build settings in `vite.config.ts`:
-
-```typescript
-export default defineConfig({
-  server: {
-    port: 3000,  // Change development port
-    open: true   // Auto-open browser
-  },
-  build: {
-    outDir: 'dist'  // Output directory
-  }
-})
-```
-
-### TypeScript Configuration
-
-Modify `tsconfig.json` for different TypeScript settings:
-
-```json
-{
-  "compilerOptions": {
-    "target": "ES2020",
-    "strict": true,
-    // ... other options
-  }
-}
-```
+The included example game demonstrates the systems with:
+- **WASD/Arrows** - Move player
+- **Mouse** - Aim and shoot
+- **Space** - Jump  
+- **1/2/3** - Switch camera views
+- **P** - Pause
+- **R** - Restart
 
 ## 🚀 Building for Production
 
-1. **Create production build**
-   ```bash
-   npm run build
-   ```
+```bash
+# Build optimized version
+npm run build
 
-2. **Preview production build**
-   ```bash
-   npm run preview
-   ```
+# Preview production build
+npm run preview  
 
-3. **Deploy the `dist/` folder** to your hosting service
+# Deploy dist/ folder
+```
 
-## 🌟 Key Improvements Over Original
+## 💡 What Can You Build?
 
-- ✅ **Modern Three.js**: Updated from v0.138 to v0.160+
-- ✅ **No Framework Lock-in**: Removed threestrap dependency
-- ✅ **TypeScript**: Full type safety and better IDE support
-- ✅ **Modern Tooling**: Vite for fast development and builds
-- ✅ **Responsive Design**: Proper handling of different screen sizes
-- ✅ **Mobile Support**: Touch controls for mobile devices
-- ✅ **Memory Management**: Proper cleanup to prevent memory leaks
-- ✅ **Code Quality**: ESLint configuration and best practices
-- ✅ **Modular Structure**: Organized code for better maintainability
+This template is perfect for:
+- 3D platformers
+- Top-down shooters
+- Racing games
+- Puzzle games
+- Action RPGs
+- Tower defense
+- Any 3D game idea!
 
-## 🎨 Customization Ideas
+## 🤝 Philosophy
 
-- Add orbit controls from `three/examples/jsm/controls/OrbitControls`
-- Implement model loading with `GLTFLoader`
-- Add post-processing effects with `EffectComposer`
-- Create interactive objects with raycasting
-- Add physics with `cannon-es` or `@react-three/rapier`
-- Implement VR support with WebXR
-
-## 🐛 Troubleshooting
-
-### TypeScript Errors
-- Make sure all dependencies are installed: `npm install`
-- Clear node_modules and reinstall if needed: `rm -rf node_modules && npm install`
-
-### Three.js Import Issues
-- Ensure you're using ES6 imports: `import * as THREE from 'three'`
-- Check that Three.js version matches type definitions
-
-### Build Issues
-- Clear Vite cache: `rm -rf node_modules/.vite`
-- Ensure TypeScript compilation is successful: `npm run build`
-
-## 📚 Learn More
-
-- [Three.js Documentation](https://threejs.org/docs/)
-- [Three.js Examples](https://threejs.org/examples/)
-- [Vite Documentation](https://vitejs.dev/)
-- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
+This template follows the philosophy of providing a **complete starting point** without being opinionated about your game design. We give you the tools; you create the experience.
 
 ## 📄 License
 
-MIT License - feel free to use this template for any project!
+MIT License - Use this template for any project, commercial or personal!
 
 ---
 
-**Happy coding with Three.js! 🎉**
+**Ready to build your game? Delete this README and make it yours! 🎮**
