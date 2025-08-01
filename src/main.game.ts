@@ -5,7 +5,7 @@ import { GameManager, GameState } from './systems/GameManager'
 import { TimeManager } from './systems/TimeManager'
 import { InputManager } from './systems/InputManager'
 import { AssetLoader } from './systems/AssetLoader'
-import { SimpleAudioManager } from './systems/SimpleAudioManager'
+import { AudioManager } from './systems/AudioManager'
 import { SceneManager } from './systems/SceneManager'
 import { UIManager } from './systems/UIManager'
 import { eventBus, GameEvents } from './utils/EventBus'
@@ -17,7 +17,6 @@ import { Collectible } from './entities/Collectible'
 import { Enemy, EnemyType } from './entities/Enemy'
 import { ObjectPool } from './utils/ObjectPool'
 import { Bullet } from './entities/Bullet'
-import { BulletPool } from './systems/BulletPool'
 
 class GameApp {
   private scene!: THREE.Scene
@@ -31,7 +30,7 @@ class GameApp {
   private timeManager!: TimeManager
   private inputManager!: InputManager
   private assetLoader!: AssetLoader
-  private audioManager!: SimpleAudioManager
+  private audioManager!: AudioManager
   private sceneManager!: SceneManager
   private uiManager!: UIManager
   
@@ -42,7 +41,7 @@ class GameApp {
   private totalLevels = 2
   private debugInfo?: HTMLDivElement
   private collectiblePool!: ObjectPool<Collectible>
-  private bulletPool!: BulletPool
+  private bulletPool!: ObjectPool<Bullet>
   private raycaster!: THREE.Raycaster
   private mouse!: THREE.Vector2
 
@@ -90,14 +89,14 @@ class GameApp {
     this.inputManager = InputManager.getInstance()
     this.gameManager = GameManager.getInstance()
     this.assetLoader = AssetLoader.getInstance()
-    this.audioManager = SimpleAudioManager.initialize()
+    this.audioManager = AudioManager.initialize()
     this.sceneManager = SceneManager.initialize(this.scene, this.camera, this.renderer)
     this.uiManager = UIManager.initialize({
       debugMode: false
     })
     
     // Initialize shooting systems
-    this.bulletPool = BulletPool.getInstance()
+    this.initializeBulletPool()
     this.raycaster = new THREE.Raycaster()
     this.mouse = new THREE.Vector2()
     
@@ -231,7 +230,7 @@ class GameApp {
     window.addEventListener('click', this.onMouseClick.bind(this))
     
     // Player shoot event
-    eventBus.on('player:shoot', (event: any) => {
+    eventBus.on('player:shoot', (event: { origin: THREE.Vector3; direction: THREE.Vector3 }) => {
       const bullet = this.bulletPool.get()
       if (bullet) {
         bullet.fire(event.origin, event.direction)
@@ -339,6 +338,22 @@ class GameApp {
       (collectible) => {
         // Additional reset logic if needed
         collectible.position.set(0, -1000, 0) // Move off-screen
+      }
+    )
+  }
+  
+  private initializeBulletPool(): void {
+    // Create object pool for bullets
+    this.bulletPool = new ObjectPool<Bullet>(
+      () => new Bullet(),
+      20, // Initial size
+      50, // Max size
+      (bullet) => {
+        // Additional reset logic
+        bullet.position.set(0, -1000, 0) // Move off-screen
+        if (bullet.parent) {
+          bullet.parent.remove(bullet)
+        }
       }
     )
   }
@@ -958,7 +973,11 @@ class GameApp {
       })
       
       // Update bullets
-      this.bulletPool.updateAll(deltaTime)
+      this.bulletPool.forEach(bullet => {
+        if (bullet.active) {
+          bullet.update(deltaTime)
+        }
+      })
       
       // Simple collision detection
       this.checkCollisions()
@@ -1055,7 +1074,7 @@ class GameApp {
   }
   
   private checkBulletCollisions(): void {
-    const bullets = this.bulletPool.getActiveBullets()
+    const bullets = this.bulletPool.filter(bullet => bullet.active)
     const enemies: Enemy[] = []
     
     // Find all enemies

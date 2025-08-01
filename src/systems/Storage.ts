@@ -20,9 +20,9 @@ export class Storage {
     this.version = version
   }
 
-  static getInstance(prefix = 'game', version = '1.0.0'): Storage {
+  static getInstance(): Storage {
     if (!Storage.instance) {
-      Storage.instance = new Storage(prefix, version)
+      Storage.instance = new Storage()
     }
     return Storage.instance
   }

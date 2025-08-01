@@ -43,24 +43,28 @@ export class Logger {
 
   debug(message: string, ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.DEBUG)) {
+      // eslint-disable-next-line no-console
       console.log(this.formatMessage('DEBUG', message), ...args)
     }
   }
 
   info(message: string, ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.INFO)) {
+      // eslint-disable-next-line no-console
       console.info(this.formatMessage('INFO', message), ...args)
     }
   }
 
   warn(message: string, ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.WARN)) {
+      // eslint-disable-next-line no-console
       console.warn(this.formatMessage('WARN', message), ...args)
     }
   }
 
   error(message: string, ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.ERROR)) {
+      // eslint-disable-next-line no-console
       console.error(this.formatMessage('ERROR', message), ...args)
     }
   }
@@ -68,12 +72,14 @@ export class Logger {
   // Group logging for better organization
   group(label: string): void {
     if (this.shouldLog(LogLevel.DEBUG)) {
+      // eslint-disable-next-line no-console
       console.group(label)
     }
   }
 
   groupEnd(): void {
     if (this.shouldLog(LogLevel.DEBUG)) {
+      // eslint-disable-next-line no-console
       console.groupEnd()
     }
   }
@@ -81,12 +87,14 @@ export class Logger {
   // Performance logging
   time(label: string): void {
     if (this.shouldLog(LogLevel.DEBUG)) {
+      // eslint-disable-next-line no-console
       console.time(label)
     }
   }
 
   timeEnd(label: string): void {
     if (this.shouldLog(LogLevel.DEBUG)) {
+      // eslint-disable-next-line no-console
       console.timeEnd(label)
     }
   }

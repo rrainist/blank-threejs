@@ -1,14 +1,5 @@
 import * as THREE from 'three'
-import { AssetLoader } from './AssetLoader'
-
-export interface Sound3DOptions {
-  refDistance?: number
-  rolloffFactor?: number
-  maxDistance?: number
-  volume?: number
-  loop?: boolean
-  autoplay?: boolean
-}
+import { logger } from '../utils/Logger'
 
 export interface SoundOptions {
   volume?: number
@@ -18,13 +9,6 @@ export interface SoundOptions {
 
 export class AudioManager {
   private static instance: AudioManager
-  private listener: THREE.AudioListener
-  private assetLoader: AssetLoader
-  
-  // Audio pools for reuse
-  private audioPool: THREE.Audio[] = []
-  private positionalAudioPool: THREE.PositionalAudio[] = []
-  private activeAudio: Set<THREE.Audio | THREE.PositionalAudio> = new Set()
   
   // Volume controls
   private masterVolume = 1
@@ -33,208 +17,107 @@ export class AudioManager {
   private muted = false
   
   // Currently playing music
-  private currentMusic?: THREE.Audio
-  private musicFadeTime = 1 // seconds
+  private currentMusic?: HTMLAudioElement
+  
+  // Sound cache
+  private soundCache: Map<string, HTMLAudioElement> = new Map()
 
-  private constructor(camera: THREE.Camera) {
-    this.listener = new THREE.AudioListener()
-    camera.add(this.listener)
-    this.assetLoader = AssetLoader.getInstance()
-    
-    // Create initial pool
-    this.expandPool()
+  private constructor() {
+    // No Three.js AudioListener needed!
   }
 
-  /**
-   * Set volume directly without ramping to prevent Web Audio API errors
-   */
-  private safeSetVolume(audio: THREE.Audio | THREE.PositionalAudio, volume: number): void {
-    // Validate volume value to prevent linearRampToValueAtTime errors
-    if (!isFinite(volume) || isNaN(volume)) {
-      console.warn('Invalid volume value:', volume, 'defaulting to 0')
-      volume = 0
-    }
-    
-    // Clamp volume between 0 and 1
-    volume = Math.max(0, Math.min(1, volume))
-    
-    try {
-      // Use Three.js setVolume method (this should work for 2D audio)
-      audio.setVolume(volume)
-    } catch (error) {
-      console.warn('Failed to set volume:', error)
-    }
-  }
-
-  static initialize(camera: THREE.Camera): AudioManager {
+  static initialize(): AudioManager {
     if (!AudioManager.instance) {
-      AudioManager.instance = new AudioManager(camera)
+      AudioManager.instance = new AudioManager()
     }
     return AudioManager.instance
   }
 
   static getInstance(): AudioManager {
     if (!AudioManager.instance) {
-      throw new Error('AudioManager not initialized. Call AudioManager.initialize(camera) first.')
+      throw new Error('AudioManager not initialized. Call AudioManager.initialize() first.')
     }
     return AudioManager.instance
   }
 
   /**
-   * Alias for playSound - Play a 2D sound (UI, music, etc)
+   * Play a 2D sound using HTML5 Audio
    */
-  play2D(soundKey: string, options: SoundOptions = {}): THREE.Audio | null {
-    return this.playSound(soundKey, options)
-  }
-
-  /**
-   * Play a 2D sound (UI, music, etc)
-   */
-  playSound(soundKey: string, options: SoundOptions = {}): THREE.Audio | null {
-    const buffer = this.assetLoader.getSound(soundKey)
-    if (!buffer) {
-      console.warn(`Sound not loaded: ${soundKey}`)
+  play2D(soundKey: string, options: SoundOptions = {}): HTMLAudioElement | null {
+    // Map sound keys to actual file URLs
+    const soundUrls: Record<string, string> = {
+      'jump': 'assets/sounds/Movement/Jumping and Landing/sfx_movement_jump8.wav',
+      'collect': 'assets/sounds/General Sounds/Coins/sfx_coin_single1.wav',
+      'damage': 'assets/sounds/General Sounds/Simple Damage Sounds/sfx_damage_hit5.wav',
+      'gameOver': 'assets/sounds/Death Screams/Human/sfx_deathscream_human1.wav',
+      'button': 'assets/sounds/General Sounds/Buttons/sfx_sounds_button6.wav',
+      'powerup': 'assets/sounds/General Sounds/Positive Sounds/sfx_sounds_powerup10.wav'
+    }
+    
+    const soundUrl = soundUrls[soundKey]
+    if (!soundUrl) {
+      logger.warn(`Sound key '${soundKey}' not found`)
       return null
     }
-
-    const audio = this.getAudioFromPool()
-    audio.setBuffer(buffer)
-    audio.setLoop(options.loop || false)
-    this.safeSetVolume(audio, (options.volume || 1) * this.sfxVolume * this.masterVolume)
     
-    if (!this.muted) {
-      audio.play()
-    }
+    const audio = new Audio(soundUrl)
     
-    this.activeAudio.add(audio as THREE.Audio | THREE.PositionalAudio)
+    // Set properties
+    const volume = (options.volume || 1) * this.sfxVolume * this.masterVolume
+    audio.volume = Math.max(0, Math.min(1, volume))
+    audio.loop = options.loop || false
     
-    // Auto-cleanup for non-looping sounds
-    if (!options.loop) {
-      audio.onEnded = () => {
-        this.activeAudio.delete(audio)
-        this.returnAudioToPool(audio)
-      }
+    if (!this.muted && options.autoplay !== false) {
+      audio.play().catch(error => {
+        logger.warn(`Failed to play audio '${soundKey}':`, error)
+      })
     }
     
     return audio
   }
 
   /**
-   * Alias for playSound3D - Play a 3D positional sound
+   * Alias for play2D - for compatibility with existing code
    */
-  play3D(soundKey: string, position: THREE.Vector3, options: Sound3DOptions = {}): THREE.PositionalAudio | null {
-    return this.playSound3D(soundKey, position, options)
+  play3D(soundKey: string, position: THREE.Vector3, options: SoundOptions = {}): HTMLAudioElement | null {
+    // Just play as 2D sound - ignore position since we don't need 3D audio
+    return this.play2D(soundKey, options)
   }
 
   /**
-   * Play a 3D positional sound
-   */
-  playSound3D(soundKey: string, position: THREE.Vector3, options: Sound3DOptions = {}): THREE.PositionalAudio | null {
-    const buffer = this.assetLoader.getSound(soundKey)
-    if (!buffer) {
-      console.warn(`Sound not loaded: ${soundKey}`)
-      return null
-    }
-
-    const audio = this.getPositionalAudioFromPool()
-    audio.setBuffer(buffer)
-    audio.setLoop(options.loop || false)
-    this.safeSetVolume(audio, (options.volume || 1) * this.sfxVolume * this.masterVolume)
-    audio.setRefDistance(options.refDistance || 10)
-    audio.setRolloffFactor(options.rolloffFactor || 1)
-    audio.setMaxDistance(options.maxDistance || 100)
-    audio.position.copy(position)
-    
-    if (!this.muted) {
-      audio.play()
-    }
-    
-    this.activeAudio.add(audio as THREE.Audio | THREE.PositionalAudio)
-    
-    // Auto-cleanup for non-looping sounds
-    if (!options.loop) {
-      audio.onEnded = () => {
-        this.activeAudio.delete(audio)
-        this.returnPositionalAudioToPool(audio)
-      }
-    }
-    
-    return audio
-  }
-
-  /**
-   * Play background music with fade transition
+   * Play background music
    */
   async playMusic(soundKey: string, options: SoundOptions = {}): Promise<void> {
-    const buffer = this.assetLoader.getSound(soundKey)
-    if (!buffer) {
-      console.warn(`Music not loaded: ${soundKey}`)
-      return
+    // Stop current music if playing
+    if (this.currentMusic) {
+      this.currentMusic.pause()
+      this.currentMusic = undefined
     }
 
-    // Fade out current music if playing
-    if (this.currentMusic && this.currentMusic.isPlaying) {
-      await this.fadeOut(this.currentMusic, this.musicFadeTime)
-      this.currentMusic.stop()
-      this.returnAudioToPool(this.currentMusic)
-    }
-
-    // Play new music
-    const audio = this.getAudioFromPool()
-    audio.setBuffer(buffer)
-    audio.setLoop(options.loop !== false) // Default to loop for music
-    this.safeSetVolume(audio, 0) // Start at 0 for fade in
+    // Create new music audio
+    const audio = new Audio()
+    audio.loop = options.loop !== false // Default to loop for music
+    audio.volume = (options.volume || 1) * this.musicVolume * this.masterVolume
     
     if (!this.muted) {
-      audio.play()
-      await this.fadeIn(audio, (options.volume || 1) * this.musicVolume * this.masterVolume, this.musicFadeTime)
-    } else {
-      this.safeSetVolume(audio, (options.volume || 1) * this.musicVolume * this.masterVolume)
+      try {
+        await audio.play()
+      } catch (error) {
+        logger.warn('Failed to play music:', error)
+      }
     }
     
     this.currentMusic = audio
-    this.activeAudio.add(audio as THREE.Audio | THREE.PositionalAudio)
   }
 
   /**
-   * Stop current music with fade
+   * Stop current music
    */
   async stopMusic(): Promise<void> {
-    if (this.currentMusic && this.currentMusic.isPlaying) {
-      await this.fadeOut(this.currentMusic, this.musicFadeTime)
-      this.currentMusic.stop()
-      this.activeAudio.delete(this.currentMusic)
-      this.returnAudioToPool(this.currentMusic)
+    if (this.currentMusic) {
+      this.currentMusic.pause()
       this.currentMusic = undefined
     }
-  }
-
-  /**
-   * Stop a specific sound
-   */
-  stopSound(audio: THREE.Audio): void {
-    if (audio.isPlaying) {
-      audio.stop()
-    }
-    this.activeAudio.delete(audio)
-    
-    if (audio instanceof THREE.PositionalAudio) {
-      this.returnPositionalAudioToPool(audio)
-    } else {
-      this.returnAudioToPool(audio)
-    }
-  }
-
-  /**
-   * Stop all sounds
-   */
-  stopAllSounds(): void {
-    this.activeAudio.forEach(audio => {
-      if (audio.isPlaying) {
-        audio.stop()
-      }
-    })
-    this.activeAudio.clear()
   }
 
   /**
@@ -242,36 +125,30 @@ export class AudioManager {
    */
   setMasterVolume(volume: number): void {
     this.masterVolume = Math.max(0, Math.min(1, volume))
-    this.updateAllVolumes()
   }
 
   setMusicVolume(volume: number): void {
     this.musicVolume = Math.max(0, Math.min(1, volume))
     if (this.currentMusic) {
-      this.safeSetVolume(this.currentMusic, this.musicVolume * this.masterVolume)
+      this.currentMusic.volume = this.musicVolume * this.masterVolume
     }
   }
 
   setSFXVolume(volume: number): void {
     this.sfxVolume = Math.max(0, Math.min(1, volume))
-    this.updateAllVolumes()
   }
 
   setMuted(muted: boolean): void {
     this.muted = muted
     
-    if (muted) {
-      this.activeAudio.forEach(audio => {
-        if (audio.isPlaying) {
-          audio.pause()
-        }
-      })
-    } else {
-      this.activeAudio.forEach(audio => {
-        if (!audio.isPlaying && audio.buffer) {
-          audio.play()
-        }
-      })
+    if (this.currentMusic) {
+      if (muted) {
+        this.currentMusic.pause()
+      } else {
+        this.currentMusic.play().catch(error => {
+          logger.warn('Failed to resume music:', error)
+        })
+      }
     }
   }
 
@@ -291,199 +168,18 @@ export class AudioManager {
     return this.sfxVolume
   }
 
-  isMutedState(): boolean {
-    return this.muted
-  }
-
   isMuted(): boolean {
     return this.muted
-  }
-
-  /**
-   * Preload a sound buffer
-   */
-  preloadSound(key: string, buffer: AudioBuffer): void {
-    this.assetLoader.addSound(key, buffer)
-  }
-
-  /**
-   * Create a simple oscillator-based sound buffer for placeholder audio
-   */
-  createOscillatorBuffer(tones: Array<{
-    frequency: number
-    duration: number
-    type?: OscillatorType
-    volume?: number
-  }>): AudioBuffer {
-    const audioContext = this.listener.context
-    const sampleRate = audioContext.sampleRate
-    
-    // Calculate total duration
-    const totalDuration = tones.reduce((sum, tone) => sum + tone.duration, 0)
-    const frameCount = totalDuration * sampleRate
-    
-    // Create buffer
-    const buffer = audioContext.createBuffer(2, frameCount, sampleRate)
-    
-    let currentFrame = 0
-    
-    // Generate tones
-    for (const tone of tones) {
-      const toneFrames = tone.duration * sampleRate
-      const volume = tone.volume || 1
-      
-      for (let channel = 0; channel < 2; channel++) {
-        const channelData = buffer.getChannelData(channel)
-        
-        for (let i = 0; i < toneFrames; i++) {
-          const t = i / sampleRate
-          let value = 0
-          
-          switch (tone.type || 'sine') {
-            case 'sine':
-              value = Math.sin(2 * Math.PI * tone.frequency * t)
-              break
-            case 'square':
-              value = Math.sin(2 * Math.PI * tone.frequency * t) > 0 ? 1 : -1
-              break
-            case 'sawtooth':
-              value = 2 * (tone.frequency * t % 1) - 1
-              break
-            case 'triangle': {
-              const period = 1 / tone.frequency
-              const phase = (t % period) / period
-              value = 4 * Math.abs(phase - 0.5) - 1
-              break
-            }
-          }
-          
-          // Apply envelope (simple fade in/out)
-          const envelope = Math.min(1, i / (0.01 * sampleRate)) * // Fade in
-                           Math.min(1, (toneFrames - i) / (0.01 * sampleRate)) // Fade out
-          
-          channelData[currentFrame + i] = value * volume * envelope * 0.3 // Reduce overall volume
-        }
-      }
-      
-      currentFrame += toneFrames
-    }
-    
-    return buffer
-  }
-
-  /**
-   * Fade effects
-   */
-  private fadeIn(audio: THREE.Audio, targetVolume: number, duration: number): Promise<void> {
-    return new Promise(resolve => {
-      const startVolume = audio.getVolume()
-      const startTime = Date.now()
-      
-      const fade = () => {
-        const elapsed = (Date.now() - startTime) / 1000
-        const t = Math.min(elapsed / duration, 1)
-        const volume = startVolume + (targetVolume - startVolume) * t
-        
-        this.safeSetVolume(audio, volume)
-        
-        if (t < 1) {
-          requestAnimationFrame(fade)
-        } else {
-          resolve()
-        }
-      }
-      
-      fade()
-    })
-  }
-
-  private fadeOut(audio: THREE.Audio, duration: number): Promise<void> {
-    return new Promise(resolve => {
-      const startVolume = audio.getVolume()
-      const startTime = Date.now()
-      
-      const fade = () => {
-        const elapsed = (Date.now() - startTime) / 1000
-        const t = Math.min(elapsed / duration, 1)
-        const volume = startVolume * (1 - t)
-        
-        this.safeSetVolume(audio, volume)
-        
-        if (t < 1) {
-          requestAnimationFrame(fade)
-        } else {
-          resolve()
-        }
-      }
-      
-      fade()
-    })
-  }
-
-  /**
-   * Audio pooling
-   */
-  private expandPool(): void {
-    // Add more audio objects to pools
-    for (let i = 0; i < 5; i++) {
-      this.audioPool.push(new THREE.Audio(this.listener))
-      this.positionalAudioPool.push(new THREE.PositionalAudio(this.listener))
-    }
-  }
-
-  private getAudioFromPool(): THREE.Audio {
-    let audio = this.audioPool.pop()
-    if (!audio) {
-      audio = new THREE.Audio(this.listener)
-    }
-    return audio
-  }
-
-  private getPositionalAudioFromPool(): THREE.PositionalAudio {
-    let audio = this.positionalAudioPool.pop()
-    if (!audio) {
-      audio = new THREE.PositionalAudio(this.listener)
-    }
-    return audio
-  }
-
-  private returnAudioToPool(audio: THREE.Audio): void {
-    audio.disconnect()
-    if (audio.buffer) {
-      // @ts-expect-error: Three.js Audio setBuffer doesn't officially accept null
-      audio.setBuffer(null) // Clear buffer reference
-    }
-    this.audioPool.push(audio)
-  }
-
-  private returnPositionalAudioToPool(audio: THREE.PositionalAudio): void {
-    audio.disconnect()
-    if (audio.buffer) {
-      // @ts-expect-error: Three.js Audio setBuffer doesn't officially accept null
-      audio.setBuffer(null) // Clear buffer reference
-    }
-    audio.position.set(0, 0, 0)
-    this.positionalAudioPool.push(audio)
-  }
-
-  private updateAllVolumes(): void {
-    this.activeAudio.forEach(audio => {
-      if (audio === this.currentMusic) {
-        this.safeSetVolume(audio, this.musicVolume * this.masterVolume)
-      } else {
-        this.safeSetVolume(audio, this.sfxVolume * this.masterVolume)
-      }
-    })
   }
 
   /**
    * Cleanup
    */
   dispose(): void {
-    this.stopAllSounds()
-    this.audioPool.forEach(audio => audio.disconnect())
-    this.positionalAudioPool.forEach(audio => audio.disconnect())
-    this.audioPool = []
-    this.positionalAudioPool = []
+    if (this.currentMusic) {
+      this.currentMusic.pause()
+      this.currentMusic = undefined
+    }
+    this.soundCache.clear()
   }
 }

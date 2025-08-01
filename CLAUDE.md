@@ -19,17 +19,17 @@ This is a game-ready Three.js TypeScript template with comprehensive systems for
 
 ### Core Game Systems
 
-#### Entity Component System (ECS)
-- **EntityManager** (`src/systems/EntityManager.ts`): Manages all game objects, handles updates, and provides query methods
-- **GameObject** (`src/entities/GameObject.ts`): Base class for all game entities with transform, components, and lifecycle methods
-- **Components** (`src/components/`): Reusable behaviors like Health, Movement, and Collider
+The template uses a direct Three.js approach where game entities extend THREE.Group or THREE.Object3D. This provides maximum flexibility and simplicity for rapid prototyping.
 
 #### System Managers
 - **GameManager** (`src/systems/GameManager.ts`): Game state machine (menu, playing, paused, game over), score/lives tracking, save/load functionality
 - **TimeManager** (`src/systems/TimeManager.ts`): Delta time, timers, FPS tracking, time scaling, frame-independent calculations
 - **InputManager** (`src/systems/InputManager.ts`): Unified input handling for keyboard, mouse, touch, and gamepad with action/axis mapping
 - **AssetLoader** (`src/systems/AssetLoader.ts`): Centralized asset loading for textures, models (GLTF), sounds, and JSON with progress tracking
-- **AudioManager** (`src/systems/AudioManager.ts`): 2D/3D sound playback, music with crossfade, volume controls, audio pooling
+- **AudioManager** (`src/systems/AudioManager.ts`): Simple HTML5 audio playback for 2D sounds and music with volume controls
+- **ConfigurationManager** (`src/systems/ConfigurationManager.ts`): Centralized game configuration for graphics, audio, gameplay, and controls settings
+- **PhysicsSystem** (`src/systems/PhysicsSystem.ts`): Simple physics simulation with collision detection, forces, and raycasting
+- **EffectsSystem** (`src/systems/EffectsSystem.ts`): Particle effects, screen effects (shake, flash), and trail rendering
 
 #### Utilities
 - **EventBus** (`src/utils/EventBus.ts`): Decoupled communication between systems
@@ -48,28 +48,109 @@ The template includes a complete example game (`main.game.ts`) demonstrating:
 
 ### Usage Patterns
 
+#### Using the New Systems
+
+##### ConfigurationManager
+```typescript
+const config = ConfigurationManager.getInstance()
+
+// Get settings
+const difficulty = config.get('gameplay', 'difficulty')
+const shadows = config.get('graphics', 'shadows')
+
+// Set settings
+config.set('audio', 'masterVolume', 0.8)
+config.set('graphics', 'quality', 'high')
+
+// Apply graphics preset
+config.applyGraphicsPreset('medium')
+
+// Listen for changes
+const unsubscribe = config.subscribe('graphics.shadows', (enabled) => {
+  renderer.shadowMap.enabled = enabled
+})
+```
+
+##### PhysicsSystem
+```typescript
+const physics = PhysicsSystem.getInstance()
+
+// Create rigid body for entity
+const body = physics.createRigidBody(entity, {
+  mass: 1,
+  restitution: 0.5,
+  useGravity: true,
+  collisionGroup: PhysicsSystem.COLLISION_GROUP.PLAYER
+})
+
+// Apply forces
+physics.applyForce(body, new THREE.Vector3(0, 100, 0))
+physics.applyImpulse(body, jumpImpulse)
+
+// Collision detection
+physics.onCollision(body, (collision) => {
+  console.log('Hit!', collision.bodyB.object.name)
+})
+
+// Update physics each frame
+physics.update(deltaTime)
+```
+
+##### EffectsSystem
+```typescript
+const effects = EffectsSystem.getInstance()
+
+// Spawn explosion
+effects.explosion(position, {
+  color: 0xff6600,
+  size: 2,
+  count: 50
+})
+
+// Create sparkles
+effects.sparkle(collectible.position, {
+  color: 0x00ffff,
+  count: 20
+})
+
+// Add trail to moving object
+effects.startTrail(bullet, {
+  color: 0xffff00,
+  opacity: 0.6
+})
+
+// Screen effects
+effects.screenShake(0.5, 1.0) // duration, intensity
+effects.screenEffect('flash', 0.2, 0.8, { color: 0xffffff })
+
+// Update effects each frame
+effects.update(deltaTime)
+```
+
 #### Creating a New Entity
 ```typescript
-class Enemy extends GameObject {
+class Enemy extends THREE.Group {
+  health: number = 50
+  speed: number = 3
+  mesh: THREE.Mesh
+  
   constructor() {
-    super('Enemy')
+    super()
     
-    // Create mesh
+    // Create visual representation
+    const geometry = new THREE.BoxGeometry(1, 1, 1)
+    const material = new THREE.MeshPhongMaterial({ color: 0xff0000 })
     this.mesh = new THREE.Mesh(geometry, material)
+    this.mesh.castShadow = true
+    this.add(this.mesh)
     
-    // Add components
-    this.addComponent('health', new Health(50))
-    this.addComponent('movement', new Movement(3))
-    this.addComponent('collider', new Collider(ColliderType.BOX))
+    // Set user data for identification
+    this.userData.type = 'enemy'
   }
   
   update(deltaTime: number): void {
-    super.update(deltaTime)
-    // Custom update logic
-  }
-  
-  clone(): Enemy {
-    return new Enemy()
+    // Update logic
+    this.position.x += this.speed * deltaTime
   }
 }
 ```
@@ -99,7 +180,7 @@ gameManager.saveGame(0) // Save slot 0
 - Three.js v0.160+ with full TypeScript support
 - Vite for fast development and optimized builds
 - ES2020 target with modern JavaScript features
-- Component-based entity architecture
+- Direct Three.js entity architecture for simplicity
 - Event-driven communication
 - Memory pooling for performance
 - Save/load system with versioning
@@ -107,8 +188,8 @@ gameManager.saveGame(0) // Save slot 0
 
 ### Development Tips
 - Use `main.game.ts` as a reference for implementing game features
-- Extend GameObject for new entity types
-- Create reusable components for common behaviors
+- Extend THREE.Group or THREE.Object3D for new entity types
+- Use composition and mixins for reusable behaviors
 - Use the EventBus for loose coupling between systems
 - Leverage ObjectPool for frequently created/destroyed objects
 - TimeManager handles all timing needs (timers, delta time, lerping)

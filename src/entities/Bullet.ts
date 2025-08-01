@@ -1,6 +1,7 @@
 import * as THREE from 'three'
+import { Poolable } from '../utils/ObjectPool'
 
-export class Bullet extends THREE.Group {
+export class Bullet extends THREE.Group implements Poolable {
   // Properties
   speed: number = 15
   damage: number = 20
