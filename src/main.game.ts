@@ -8,6 +8,10 @@ import { AssetLoader } from './systems/AssetLoader'
 import { AudioManager } from './systems/AudioManager'
 import { SceneManager } from './systems/SceneManager'
 import { UIManager } from './systems/UIManager'
+import { CameraController, CameraMode } from './systems/CameraController'
+import { LevelManager } from './systems/LevelManager'
+import { PhysicsSystem } from './systems/PhysicsSystem'
+import { EffectsSystem } from './systems/EffectsSystem'
 import { eventBus, GameEvents } from './utils/EventBus'
 import { ItemCollectEvent, PlayerJumpEvent, PlayerAttackEvent, EnemyDeathEvent, EnemyAttackEvent } from './types/events'
 import { logger } from './utils/Logger'
@@ -33,6 +37,10 @@ class GameApp {
   private audioManager!: AudioManager
   private sceneManager!: SceneManager
   private uiManager!: UIManager
+  private cameraController!: CameraController
+  private levelManager!: LevelManager
+  private physicsSystem!: PhysicsSystem
+  private effectsSystem!: EffectsSystem
   
   // Game state
   private player?: Player
@@ -94,6 +102,10 @@ class GameApp {
     this.uiManager = UIManager.initialize({
       debugMode: false
     })
+    this.cameraController = CameraController.initialize(this.camera)
+    this.levelManager = LevelManager.initialize(this.scene)
+    this.physicsSystem = PhysicsSystem.getInstance()
+    this.effectsSystem = EffectsSystem.initialize(this.scene, this.camera, this.renderer)
     
     // Initialize shooting systems
     this.initializeBulletPool()
@@ -365,23 +377,10 @@ class GameApp {
     // Register Level 1 - City Theme
     this.sceneManager.registerScene('level1', {
       name: 'level1',
-      fogColor: 0xcccccc,
-      fogNear: 20,
-      fogFar: 100,
-      ambientLight: {
-        color: 0x606060,
-        intensity: 1.0  // Increased from 0.8 to soften shadows
-      },
-      directionalLight: {
-        color: 0xffffff,
-        intensity: 0.7,
-        position: new THREE.Vector3(10, 10, 5),
-        castShadow: true
-      },
-      onLoad: () => {
-        logger.info('Level 1 - City loaded')
+      onLoad: async () => {
+        logger.info('Loading Level 1 - City')
         this.currentLevel = 1
-        this.createLevel1Geometry()
+        await this.levelManager.loadLevelFromFile('assets/levels/level1-city.json')
         this.setupLevel()
       }
     })
@@ -389,28 +388,16 @@ class GameApp {
     // Register Level 2 - Forest Theme
     this.sceneManager.registerScene('level2', {
       name: 'level2',
-      fogColor: 0x406040,  // Lighter green fog
-      fogNear: 15,
-      fogFar: 80,
-      ambientLight: {
-        color: 0x606080,  // Brighter ambient color
-        intensity: 0.8    // Increased from 0.5 to make level much lighter
-      },
-      directionalLight: {
-        color: 0xaabbff,  // Brighter blue-white light
-        intensity: 0.8,   // Increased from 0.6
-        position: new THREE.Vector3(-20, 30, -10),
-        castShadow: true
-      },
-      onLoad: () => {
-        logger.info('Level 2 - Forest loaded')
+      onLoad: async () => {
+        logger.info('Loading Level 2 - Forest')
         this.currentLevel = 2
-        this.createLevel2Geometry()
+        await this.levelManager.loadLevelFromFile('assets/levels/level2-forest.json')
         this.setupLevel()
       }
     })
   }
 
+  /* Level geometry now loaded from JSON files
   private createLevel1Geometry(): void {
     logger.debug('Creating Level 1 - City geometry...')
     
@@ -537,11 +524,19 @@ class GameApp {
     
     logger.debug(`Level 2 geometry complete. Scene has ${this.scene.children.length} children`)
   }
+  */
 
   private setupGame(): void {
     // Create player
     this.player = new Player()
     this.scene.add(this.player)
+    
+    // Initialize player physics - DISABLED until we fix box collision
+    // this.player.initPhysics()
+    
+    // Setup camera to follow player
+    this.cameraController.setMode(CameraMode.THIRD_PERSON)
+    this.cameraController.setTarget(this.player)
     
     // Start game
     this.gameManager.changeState(GameState.PLAYING)
@@ -960,6 +955,9 @@ class GameApp {
     
     // Update entities only when playing
     if (this.gameManager.isInState(GameState.PLAYING) && !isPaused) {
+      // Update physics system first
+      this.physicsSystem.update(deltaTime)
+      
       // Update player
       if (this.player) {
         this.player.update(deltaTime)
@@ -983,16 +981,8 @@ class GameApp {
       this.checkCollisions()
       this.checkBulletCollisions()
       
-      // Simple camera follow
-      if (this.player) {
-        // Position camera behind and above player with more distance to reduce clipping
-        this.camera.position.x = this.player.position.x
-        this.camera.position.y = this.player.position.y + 15
-        this.camera.position.z = this.player.position.z + 15
-        
-        // Look at player
-        this.camera.lookAt(this.player.position)
-      }
+      // Camera controller will handle camera movement
+      this.cameraController.update(deltaTime)
     }
     
     // Update UI

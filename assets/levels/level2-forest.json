@@ -1,0 +1,285 @@
+{
+  "name": "Forest Level",
+  "description": "Natural forest environment with trees",
+  "environment": {
+    "fogColor": "0x406040",
+    "fogNear": 15,
+    "fogFar": 80,
+    "ambientLight": {
+      "color": "0x606080",
+      "intensity": 0.8
+    },
+    "directionalLight": {
+      "color": "0xaabbff",
+      "intensity": 0.8,
+      "position": [-20, 30, -10],
+      "castShadow": true
+    }
+  },
+  "ground": {
+    "size": [50, 50],
+    "position": [0, 0, 0],
+    "color": "0x2d5016"
+  },
+  "objects": [
+    {
+      "type": "box",
+      "name": "Wall_North",
+      "position": [0, 5, -25],
+      "size": [50, 10, 1],
+      "color": "0x4a4a4a",
+      "physics": {
+        "isStatic": true,
+        "mass": 0
+      }
+    },
+    {
+      "type": "box",
+      "name": "Wall_South",
+      "position": [0, 5, 25],
+      "rotation": [0, 3.14159, 0],
+      "size": [50, 10, 1],
+      "color": "0x4a4a4a",
+      "physics": {
+        "isStatic": true,
+        "mass": 0
+      }
+    },
+    {
+      "type": "box",
+      "name": "Wall_West",
+      "position": [-25, 5, 0],
+      "rotation": [0, 1.5708, 0],
+      "size": [50, 10, 1],
+      "color": "0x4a4a4a",
+      "physics": {
+        "isStatic": true,
+        "mass": 0
+      }
+    },
+    {
+      "type": "box",
+      "name": "Wall_East",
+      "position": [25, 5, 0],
+      "rotation": [0, -1.5708, 0],
+      "size": [50, 10, 1],
+      "color": "0x4a4a4a",
+      "physics": {
+        "isStatic": true,
+        "mass": 0
+      }
+    },
+    {
+      "type": "cylinder",
+      "name": "TreeTrunk_0",
+      "position": [10, 3, 10],
+      "size": [0.8, 6, 0.8],
+      "color": "0x4a3c28",
+      "physics": {
+        "isStatic": true,
+        "mass": 0
+      },
+      "userData": {
+        "type": "tree"
+      }
+    },
+    {
+      "type": "sphere",
+      "name": "TreeLeaves_0",
+      "position": [10, 7.6, 10],
+      "size": 2.4,
+      "color": "0x228b22",
+      "userData": {
+        "type": "tree"
+      }
+    },
+    {
+      "type": "cylinder",
+      "name": "TreeTrunk_1",
+      "position": [-12, 4, -8],
+      "size": [1, 8, 1],
+      "color": "0x4a3c28",
+      "physics": {
+        "isStatic": true,
+        "mass": 0
+      },
+      "userData": {
+        "type": "tree"
+      }
+    },
+    {
+      "type": "sphere",
+      "name": "TreeLeaves_1",
+      "position": [-12, 10, -8],
+      "size": 3,
+      "color": "0x228b22",
+      "userData": {
+        "type": "tree"
+      }
+    },
+    {
+      "type": "cylinder",
+      "name": "TreeTrunk_2",
+      "position": [15, 2.5, -15],
+      "size": [0.6, 5, 0.6],
+      "color": "0x4a3c28",
+      "physics": {
+        "isStatic": true,
+        "mass": 0
+      },
+      "userData": {
+        "type": "tree"
+      }
+    },
+    {
+      "type": "sphere",
+      "name": "TreeLeaves_2",
+      "position": [15, 6.2, -15],
+      "size": 1.8,
+      "color": "0x228b22",
+      "userData": {
+        "type": "tree"
+      }
+    },
+    {
+      "type": "cylinder",
+      "name": "TreeTrunk_3",
+      "position": [-8, 3.5, 12],
+      "size": [0.9, 7, 0.9],
+      "color": "0x4a3c28",
+      "physics": {
+        "isStatic": true,
+        "mass": 0
+      },
+      "userData": {
+        "type": "tree"
+      }
+    },
+    {
+      "type": "sphere",
+      "name": "TreeLeaves_3",
+      "position": [-8, 8.8, 12],
+      "size": 2.7,
+      "color": "0x228b22",
+      "userData": {
+        "type": "tree"
+      }
+    },
+    {
+      "type": "cylinder",
+      "name": "TreeTrunk_4",
+      "position": [5, 3, -5],
+      "size": [0.7, 6, 0.7],
+      "color": "0x4a3c28",
+      "physics": {
+        "isStatic": true,
+        "mass": 0
+      },
+      "userData": {
+        "type": "tree"
+      }
+    },
+    {
+      "type": "sphere",
+      "name": "TreeLeaves_4",
+      "position": [5, 7.4, -5],
+      "size": 2.1,
+      "color": "0x228b22",
+      "userData": {
+        "type": "tree"
+      }
+    },
+    {
+      "type": "cylinder",
+      "name": "TreeTrunk_5",
+      "position": [-18, 4.5, 5],
+      "size": [1.2, 9, 1.2],
+      "color": "0x4a3c28",
+      "physics": {
+        "isStatic": true,
+        "mass": 0
+      },
+      "userData": {
+        "type": "tree"
+      }
+    },
+    {
+      "type": "sphere",
+      "name": "TreeLeaves_5",
+      "position": [-18, 11.4, 5],
+      "size": 3.6,
+      "color": "0x228b22",
+      "userData": {
+        "type": "tree"
+      }
+    }
+  ],
+  "spawnPoints": [
+    {
+      "type": "player",
+      "position": [0, 1, 0]
+    },
+    {
+      "type": "collectible",
+      "position": [0, 1, 0]
+    },
+    {
+      "type": "collectible",
+      "position": [-15, 1, 0]
+    },
+    {
+      "type": "collectible",
+      "position": [15, 1, 0]
+    },
+    {
+      "type": "collectible",
+      "position": [0, 1, -15]
+    },
+    {
+      "type": "collectible",
+      "position": [0, 1, 15]
+    },
+    {
+      "type": "collectible",
+      "position": [18, 1, 18]
+    },
+    {
+      "type": "collectible",
+      "position": [-18, 1, -18]
+    },
+    {
+      "type": "collectible",
+      "position": [18, 1, -18]
+    },
+    {
+      "type": "collectible",
+      "position": [-18, 1, 18]
+    },
+    {
+      "type": "enemy",
+      "position": [-10, 1, -10],
+      "data": {
+        "enemyType": "patrol",
+        "patrolPoints": [[-10, 1, -10], [-15, 1, -10], [-15, 1, -15], [-10, 1, -15]]
+      }
+    },
+    {
+      "type": "enemy",
+      "position": [0, 1, -15],
+      "data": {
+        "enemyType": "chaser"
+      }
+    },
+    {
+      "type": "enemy",
+      "position": [15, 1, 5],
+      "data": {
+        "enemyType": "chaser"
+      }
+    }
+  ],
+  "boundaries": {
+    "min": [-25, 0, -25],
+    "max": [25, 20, 25]
+  }
+}

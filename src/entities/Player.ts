@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { InputManager } from '../systems/InputManager'
+import { PhysicsSystem, RigidBody } from '../systems/PhysicsSystem'
 import { PLAYER } from '../constants/GameConstants'
 import { eventBus } from '../utils/EventBus'
 
@@ -20,13 +21,15 @@ export class Player extends THREE.Group {
   velocity: THREE.Vector3
   isGrounded: boolean = false
   gravity: number = -30
-  groundLevel: number = 1
+  groundLevel: number = 1  // Player center position when standing on ground
+  rigidBody?: RigidBody
   
   // Visual
   mesh: THREE.Mesh
   
   // Systems
   input: InputManager
+  physics: PhysicsSystem
   
   constructor() {
     super()
@@ -56,13 +59,46 @@ export class Player extends THREE.Group {
     // Set initial position
     this.position.y = PLAYER.CAPSULE_RADIUS + PLAYER.CAPSULE_HEIGHT / 2
     
-    // Get input manager
+    // Get systems
     this.input = InputManager.getInstance()
     this.input.addAction('attack', { keys: ['f', 'F'], mouseButtons: [0] })
+    this.physics = PhysicsSystem.getInstance()
     
     // Set user data for identification
     this.userData.type = 'player'
     this.name = 'Player'
+  }
+  
+  initPhysics(): void {
+    // Create rigid body for the player
+    this.rigidBody = this.physics.createRigidBody(this, {
+      mass: 1,
+      restitution: 0,
+      friction: 0.5,
+      useGravity: true,
+      collisionGroup: PhysicsSystem.COLLISION_GROUP.PLAYER,
+      collisionMask: PhysicsSystem.COLLISION_GROUP.STATIC | 
+                     PhysicsSystem.COLLISION_GROUP.ENEMY | 
+                     PhysicsSystem.COLLISION_GROUP.PICKUP
+    })
+    
+    // Listen for collisions
+    this.physics.onCollision(this.rigidBody, (collision) => {
+      // Check if we hit the ground
+      if (collision.normal.y > 0.7) { // Mostly vertical normal
+        this.isGrounded = true
+        this.velocity.y = 0
+      }
+      
+      // Check for wall collisions
+      if (Math.abs(collision.normal.y) < 0.3) { // Mostly horizontal
+        eventBus.emit('player:wallHit', {
+          player: this,
+          point: collision.contactPoint,
+          normal: collision.normal
+        })
+      }
+    })
   }
   
   update(deltaTime: number): void {
@@ -70,34 +106,62 @@ export class Player extends THREE.Group {
     const horizontal = this.input.getAxis('horizontal')
     const vertical = this.input.getAxis('vertical')
     
-    // Movement
-    const moveX = horizontal * this.speed * deltaTime
-    const moveZ = -vertical * this.speed * deltaTime // Negative for correct direction
-    
-    // Apply movement
-    this.position.x += moveX
-    this.position.z += moveZ
-    
-    // Apply gravity
-    if (!this.isGrounded) {
-      this.velocity.y += this.gravity * deltaTime
+    // Debug: log player position when moving
+    if (Math.abs(horizontal) > 0.1 || Math.abs(vertical) > 0.1) {
+      console.log(`Player Y position: ${this.position.y.toFixed(2)}, Grounded: ${this.isGrounded}`)
     }
     
-    // Update position from velocity
-    this.position.y += this.velocity.y * deltaTime
+    // Movement forces
+    const moveForce = new THREE.Vector3(
+      horizontal * this.speed * 50, // Convert speed to force
+      0,
+      -vertical * this.speed * 50
+    )
     
-    // Ground collision
-    if (this.position.y <= this.groundLevel) {
-      this.position.y = this.groundLevel
-      this.velocity.y = 0
-      this.isGrounded = true
+    // Apply movement force if we have a rigid body
+    if (this.rigidBody) {
+      // Apply force for movement
+      this.physics.applyForce(this.rigidBody, moveForce)
+      
+      // Limit horizontal velocity
+      const vel = this.rigidBody.velocity
+      const horizontalVel = new THREE.Vector2(vel.x, vel.z)
+      if (horizontalVel.length() > this.speed) {
+        horizontalVel.normalize().multiplyScalar(this.speed)
+        this.rigidBody.velocity.x = horizontalVel.x
+        this.rigidBody.velocity.z = horizontalVel.y
+      }
     } else {
-      this.isGrounded = false
+      // Fallback to direct movement if no physics
+      this.position.x += horizontal * this.speed * deltaTime
+      this.position.z += -vertical * this.speed * deltaTime
+      
+      // Simple gravity
+      if (!this.isGrounded) {
+        this.velocity.y += this.gravity * deltaTime
+      }
+      
+      // Update position from velocity
+      this.position.y += this.velocity.y * deltaTime
+      
+      // Ground collision
+      if (this.position.y <= this.groundLevel) {
+        this.position.y = this.groundLevel
+        this.velocity.y = 0
+        this.isGrounded = true
+      } else {
+        this.isGrounded = false
+      }
     }
     
     // Jump
     if (this.input.isActionJustPressed('jump') && this.isGrounded) {
-      this.velocity.y = this.jumpSpeed
+      if (this.rigidBody) {
+        // Apply jump impulse
+        this.physics.applyImpulse(this.rigidBody, new THREE.Vector3(0, this.jumpSpeed, 0))
+      } else {
+        this.velocity.y = this.jumpSpeed
+      }
       this.isGrounded = false
       
       // Emit jump event
