@@ -30,6 +30,10 @@ The template uses a direct Three.js approach where game entities extend THREE.Gr
 - **ConfigurationManager** (`src/systems/ConfigurationManager.ts`): Centralized game configuration for graphics, audio, gameplay, and controls settings
 - **PhysicsSystem** (`src/systems/PhysicsSystem.ts`): Simple physics simulation with collision detection, forces, and raycasting
 - **EffectsSystem** (`src/systems/EffectsSystem.ts`): Particle effects, screen effects (shake, flash), and trail rendering
+- **CameraController** (`src/systems/CameraController.ts`): Multiple camera modes (first-person, third-person, orbital), smooth following, orthographic/perspective switching
+- **SceneManager** (`src/systems/SceneManager.ts`): Scene transitions, fade effects, scene configuration and presets, automatic cleanup
+- **UIManager** (`src/systems/UIManager.ts`): Screen management, HUD, pause menu, responsive design, event-driven updates
+- **LevelManager** (`src/systems/LevelManager.ts`): JSON-based level loading, spawn point management, level geometry creation
 
 #### Utilities
 - **EventBus** (`src/utils/EventBus.ts`): Decoupled communication between systems
@@ -40,11 +44,16 @@ The template uses a direct Three.js approach where game entities extend THREE.Gr
 
 The template includes a complete example game (`main.game.ts`) demonstrating:
 - Player character with WASD movement and jumping
-- Collectible items with scoring
+- Shooting mechanics with mouse aiming and bullet projectiles
+- Multiple enemy types (patrol, shooter, chaser) with different AI behaviors
+- Collectible items with scoring and level progression
 - Health system with damage/death handling
-- Camera following
+- Multiple camera modes with smooth following
+- Level loading from JSON files with spawn points
 - Debug UI with FPS and game state
 - Input handling for pause, restart, and debug spawning
+- Sound effects using actual audio files
+- Object pooling for bullets and collectibles
 
 ### Usage Patterns
 
@@ -127,6 +136,47 @@ effects.screenEffect('flash', 0.2, 0.8, { color: 0xffffff })
 effects.update(deltaTime)
 ```
 
+#### CameraController
+```typescript
+const cameraController = CameraController.getInstance()
+
+// Set camera mode
+cameraController.setMode(CameraMode.THIRD_PERSON)
+cameraController.setMode(CameraMode.FIRST_PERSON)
+cameraController.setMode(CameraMode.ORBITAL)
+
+// Switch camera type
+cameraController.switchToOrthographic()
+cameraController.switchToPerspective()
+
+// Set target to follow
+cameraController.setTarget(player)
+
+// Configure camera
+cameraController.applyConfig({
+  distance: 15,
+  enableDamping: true,
+  dampingFactor: 0.05
+})
+```
+
+#### LevelManager
+```typescript
+const levelManager = LevelManager.getInstance()
+
+// Load level from JSON file
+await levelManager.loadLevelFromFile('assets/levels/level1-city.json')
+
+// Get spawn points
+const playerSpawn = levelManager.getRandomSpawnPoint('player')
+const collectibleSpawns = levelManager.getSpawnPoints('collectible')
+
+// Check boundaries
+if (levelManager.isInBounds(position)) {
+  // Position is within level boundaries
+}
+```
+
 #### Creating a New Entity
 ```typescript
 class Enemy extends THREE.Group {
@@ -186,6 +236,58 @@ gameManager.saveGame(0) // Save slot 0
 - Save/load system with versioning
 - Comprehensive input system with remapping support
 
+### Game Controls
+
+#### Player Controls
+- **WASD/Arrow Keys** - Move player
+- **Space** - Jump
+- **Left Click** - Shoot projectile at mouse cursor
+- **F** - Melee attack
+- **Right Mouse Button (hold)** - Rotate camera
+
+#### Debug Controls
+- **C** - Spawn debug collectible
+- **R** - Restart game
+- **P** - Pause/unpause
+- **M** - Mute/unmute audio
+- **F5** - Save game
+- **F9** - Load game
+- **1/2/3** - Switch camera modes (first-person/third-person/orbital)
+- **4** - Switch to orthographic camera
+- **5** - Switch to perspective camera
+
+### Level System
+
+The game uses JSON-based level files stored in `assets/levels/`. Each level defines:
+- Environment settings (fog, lighting)
+- Ground properties
+- Static objects (walls, buildings, trees)
+- Spawn points for player, enemies, and collectibles
+- Level boundaries
+
+Example level structure:
+```json
+{
+  "name": "City Level",
+  "environment": {
+    "fogColor": "0xcccccc",
+    "ambientLight": { "color": "0x606060", "intensity": 1.0 }
+  },
+  "objects": [
+    {
+      "type": "box",
+      "position": [0, 5, 0],
+      "size": [10, 10, 10],
+      "color": "0x404040"
+    }
+  ],
+  "spawnPoints": [
+    { "type": "player", "position": [0, 1, 0] },
+    { "type": "collectible", "position": [5, 1, 5] }
+  ]
+}
+```
+
 ### Development Tips
 - Use `main.game.ts` as a reference for implementing game features
 - Extend THREE.Group or THREE.Object3D for new entity types
@@ -193,3 +295,6 @@ gameManager.saveGame(0) // Save slot 0
 - Use the EventBus for loose coupling between systems
 - Leverage ObjectPool for frequently created/destroyed objects
 - TimeManager handles all timing needs (timers, delta time, lerping)
+- Camera uses orthographic projection by default for consistent game view
+- All collectibles and enemies are defined in level JSON files
+- Physics system uses capsule colliders for characters

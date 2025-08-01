@@ -8,22 +8,42 @@ This directory contains reusable utility classes and helper functions.
 A type-safe event system for decoupled communication between game systems.
 
 ```typescript
-// Define events
-const GameEvents = {
-  PLAYER_JUMP: 'player:jump',
+// Define events (from src/utils/EventBus.ts)
+export const GameEvents = {
+  // Player events
+  PLAYER_DAMAGE: 'player:damage',
+  PLAYER_DEATH: 'player:death',
+  PLAYER_HEAL: 'player:heal',
+  
+  // Game state events
+  GAME_START: 'game:start',
+  GAME_PAUSE: 'game:pause',
+  GAME_RESUME: 'game:resume',
+  GAME_OVER: 'game:over',
+  
+  // Gameplay events
   ITEM_COLLECT: 'item:collect',
-  ENEMY_DEATH: 'enemy:death'
+  ENEMY_SPAWN: 'enemy:spawn',
+  ENEMY_DEATH: 'enemy:death',
+  ENEMY_ATTACK: 'enemy:attack',
+  LEVEL_COMPLETE: 'level:complete',
+  
+  // System events
+  SCENE_LOADED: 'scene:loaded',
+  AUDIO_LOADED: 'audio:loaded',
+  SETTINGS_CHANGED: 'settings:changed'
 } as const
 
 // Emit events
-eventBus.emit(GameEvents.PLAYER_JUMP, { 
+eventBus.emit(GameEvents.PLAYER_DAMAGE, { 
   player: playerRef, 
-  height: 10 
+  damage: 10,
+  source: enemy 
 })
 
-// Listen for events
-const unsubscribe = eventBus.on(GameEvents.ITEM_COLLECT, (event) => {
-  console.log(`Collected: ${event.item.name}`)
+// Listen for events with proper typing
+const unsubscribe = eventBus.on(GameEvents.ITEM_COLLECT, (event: ItemCollectEvent) => {
+  console.log(`Collected ${event.item.name} worth ${event.value} points`)
 })
 
 // Clean up
@@ -31,7 +51,7 @@ unsubscribe()
 ```
 
 ### ObjectPool
-Generic object pooling system for performance optimization.
+Generic object pooling system for performance optimization. Used extensively for bullets and collectibles.
 
 ```typescript
 // Create a pool
@@ -44,14 +64,27 @@ const bulletPool = new ObjectPool<Bullet>(
 
 // Get object from pool
 const bullet = bulletPool.get()
-bullet.fire(origin, direction)
+if (bullet) {
+  bullet.fire(origin, direction)
+  scene.add(bullet)
+}
 
 // Return to pool
 bulletPool.release(bullet)
 
+// Iterate over active objects
+bulletPool.forEach(bullet => {
+  if (bullet.active) {
+    bullet.update(deltaTime)
+  }
+})
+
 // Check pool stats
 const stats = bulletPool.getStats()
-console.log(`Pool utilization: ${stats.utilization * 100}%`)
+console.log(`Active: ${stats.activeCount}/${stats.totalCount} (${Math.round(stats.utilization * 100)}%)`)
+
+// Filter active objects
+const activeBullets = bulletPool.filter(bullet => bullet.active)
 ```
 
 ### Logger
@@ -205,12 +238,21 @@ function debugObject(obj: THREE.Object3D): void {
 }
 ```
 
+## Current Event Types
+
+The game uses typed events defined in `src/types/events.ts`:
+- `PlayerJumpEvent`, `PlayerAttackEvent`, `PlayerShootEvent`
+- `ItemCollectEvent`, `EnemyDeathEvent`, `EnemyAttackEvent`
+- `LevelCompleteEvent`, `SceneLoadedEvent`
+
 ## Best Practices
 
-1. **Use Pools**: Always pool frequently created objects
+1. **Use Pools**: Always pool frequently created objects (bullets, particles, collectibles)
 2. **Clean Up Events**: Store and call unsubscribe functions
 3. **Handle Errors**: Use ErrorHandler for robust error management
 4. **Log Wisely**: Use appropriate log levels and structured data
 5. **Profile Performance**: Monitor critical paths with timing
 6. **Type Everything**: Leverage TypeScript for type safety
 7. **Document Utils**: Add JSDoc comments for complex utilities
+8. **Event Naming**: Use colon-separated naming for events (e.g., 'player:jump')
+9. **Pool Reset**: Always implement proper reset logic for pooled objects

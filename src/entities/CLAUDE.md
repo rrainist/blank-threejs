@@ -90,26 +90,39 @@ export class Bullet extends THREE.Group implements Poolable {
 
 ## Entity Categories
 
-### Player
-- Handles input through InputManager
-- Emits events for actions (jump, attack, shoot)
-- Usually singleton in the game
+### Player (`Player.ts`)
+- Capsule-shaped character with physics integration
+- WASD movement with force-based physics
+- Jump mechanics with ground detection
+- Shooting with mouse aiming
+- Melee attack capability
+- Health system with damage/heal methods
+- Emits events: `player:jump`, `player:shoot`, `player:attack`, `player:land`, `player:wallHit`
 
-### Enemies
-- Different AI behaviors (patrol, chase, shoot)
-- Target tracking
-- State machines for complex behavior
+### Enemies (`Enemy.ts`)
+- Three types: PATROL, SHOOTER, CHASER
+- AI behaviors:
+  - **PATROL**: Follows waypoints or moves randomly
+  - **SHOOTER**: Stays at distance and shoots projectiles
+  - **CHASER**: Actively pursues the player
+- Target tracking and attack patterns
+- State machine implementation
+- Health system with visual feedback
+- Configurable through `GameConstants`
 
-### Collectibles
-- Trigger collection on proximity
-- Visual effects (floating, spinning)
-- Value and scoring integration
+### Collectibles (`Collectible.ts`)
+- Floating, rotating items
+- Configurable value and color
+- Collection particle effects
+- Object pooling support
+- Emits `ITEM_COLLECT` event on collection
 
-### Projectiles
-- Physics-based movement
-- Collision detection
-- Limited lifetime
+### Projectiles (`Bullet.ts`)
+- Fast-moving projectiles with trail effect
+- Limited lifetime (auto-cleanup)
 - Object pooling for performance
+- Damage dealing on impact
+- Visual feedback (emissive material)
 
 ## Best Practices
 
@@ -119,6 +132,34 @@ export class Bullet extends THREE.Group implements Poolable {
 4. **Pool Frequently**: Use ObjectPool for entities created often
 5. **Visual Feedback**: Always provide visual feedback for state changes
 
+## Current Entities Implementation
+
+### Constants Configuration
+All entity properties are centralized in `src/constants/GameConstants.ts`:
+```typescript
+export const PLAYER = {
+  HEALTH: 100,
+  MOVE_SPEED: 8,
+  JUMP_SPEED: 12,
+  ATTACK_DAMAGE: 25,
+  ATTACK_RANGE: 2,
+  CAPSULE_RADIUS: 0.5,
+  CAPSULE_HEIGHT: 1
+}
+
+export const ENEMY = {
+  COMMON: {
+    HEALTH: 50,
+    MOVE_SPEED: 3,
+    ATTACK_DAMAGE: 10,
+    DEATH_POINTS: 100
+  },
+  PATROL: { PATROL_RADIUS: 5 },
+  SHOOTER: { SHOOT_RANGE: 15, FIRE_RATE: 2 },
+  CHASER: { CHASE_RANGE: 10, CHASE_SPEED: 5 }
+}
+```
+
 ## Common Patterns
 
 ### Movement
@@ -127,10 +168,15 @@ export class Bullet extends THREE.Group implements Poolable {
 this.position.x += this.velocity.x * deltaTime
 this.position.z += this.velocity.z * deltaTime
 
-// With physics
-const physics = PhysicsSystem.getInstance()
-const body = physics.createRigidBody(this)
-physics.applyForce(body, moveForce)
+// Force-based physics movement (used by Player)
+if (this.rigidBody) {
+  const force = new THREE.Vector3(
+    horizontal * forceMultiplier,
+    0,
+    -vertical * forceMultiplier
+  )
+  this.physics.applyForce(this.rigidBody, force)
+}
 ```
 
 ### Health System
@@ -181,6 +227,28 @@ class Enemy extends THREE.Group {
 }
 ```
 
+### Shooting Mechanics
+```typescript
+// Player shooting (mouse-aimed)
+shoot(direction: THREE.Vector3): void {
+  const shootOrigin = this.position.clone()
+  shootOrigin.y = 1 // Center height
+  
+  eventBus.emit('player:shoot', {
+    player: this,
+    origin: shootOrigin,
+    direction: direction.clone()
+  })
+}
+
+// Bullet handling
+const bullet = bulletPool.get()
+if (bullet) {
+  bullet.fire(origin, direction)
+  scene.add(bullet)
+}
+```
+
 ### Collision Response
 ```typescript
 // Using PhysicsSystem
@@ -191,14 +259,15 @@ physics.onCollision(this.rigidBody, (collision) => {
   }
 })
 
-// Manual checking
+// Manual distance checking (used for collectibles)
 checkCollisions(): void {
-  const player = this.scene.getObjectByName('Player')
-  if (player) {
-    const distance = this.position.distanceTo(player.position)
-    if (distance < this.collisionRadius) {
-      this.onPlayerCollision(player)
-    }
+  const distance = playerPos.distanceTo(collectible.position)
+  if (distance < 1.5) { // Collection radius
+    eventBus.emit(GameEvents.ITEM_COLLECT, {
+      item: collectible,
+      collector: player,
+      value: collectible.value
+    })
   }
 }
 ```
