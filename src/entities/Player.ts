@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { InputManager } from '../systems/InputManager'
-import { PhysicsSystem, RigidBody } from '../systems/PhysicsSystem'
+import { PhysicsSystem, RigidBody, CollisionShape } from '../systems/PhysicsSystem'
 import { PLAYER } from '../constants/GameConstants'
 import { eventBus } from '../utils/EventBus'
 
@@ -18,10 +18,8 @@ export class Player extends THREE.Group {
   lastShootTime: number = 0
   
   // Physics
-  velocity: THREE.Vector3
   isGrounded: boolean = false
-  gravity: number = -30
-  groundLevel: number = 1  // Player center position when standing on ground
+  groundContactCount: number = 0
   rigidBody?: RigidBody
   
   // Visual
@@ -42,7 +40,6 @@ export class Player extends THREE.Group {
     this.attackDamage = PLAYER.ATTACK_DAMAGE
     this.attackRange = PLAYER.ATTACK_RANGE
     this.attackCooldown = PLAYER.ATTACK_COOLDOWN
-    this.velocity = new THREE.Vector3()
     
     // Create visual representation
     const geometry = new THREE.CapsuleGeometry(PLAYER.CAPSULE_RADIUS, PLAYER.CAPSULE_HEIGHT, 4, 8)
@@ -57,7 +54,10 @@ export class Player extends THREE.Group {
     this.add(this.mesh)
     
     // Set initial position
-    this.position.y = PLAYER.CAPSULE_RADIUS + PLAYER.CAPSULE_HEIGHT / 2
+    // For Three.js CapsuleGeometry: total height = height + 2*radius
+    // To place bottom at y=0, center should be at y = (height + 2*radius) / 2
+    const totalHeight = PLAYER.CAPSULE_HEIGHT + 2 * PLAYER.CAPSULE_RADIUS
+    this.position.y = totalHeight / 2
     
     // Get systems
     this.input = InputManager.getInstance()
@@ -74,20 +74,30 @@ export class Player extends THREE.Group {
     this.rigidBody = this.physics.createRigidBody(this, {
       mass: 1,
       restitution: 0,
-      friction: 0.5,
+      friction: 0.1, // Reduced friction for easier movement
       useGravity: true,
+      shape: CollisionShape.CAPSULE,
+      radius: PLAYER.CAPSULE_RADIUS,
+      height: PLAYER.CAPSULE_HEIGHT,
       collisionGroup: PhysicsSystem.COLLISION_GROUP.PLAYER,
       collisionMask: PhysicsSystem.COLLISION_GROUP.STATIC | 
                      PhysicsSystem.COLLISION_GROUP.ENEMY | 
                      PhysicsSystem.COLLISION_GROUP.PICKUP
     })
     
+    // Configure physics body
+    if (this.rigidBody) {
+      // Set linear damping for natural deceleration
+      this.rigidBody.body.linearDamping = 0.1      // Disable sleep to ensure player is always responsive
+      this.rigidBody.body.allowSleep = false
+    }
+    
     // Listen for collisions
     this.physics.onCollision(this.rigidBody, (collision) => {
-      // Check if we hit the ground
-      if (collision.normal.y > 0.7) { // Mostly vertical normal
-        this.isGrounded = true
-        this.velocity.y = 0
+      // Check for ground collisions (normal pointing up)
+      if (collision.normal.y > 0.5) {
+        this.groundContactCount++
+        console.log('Ground contact detected! Count:', this.groundContactCount)
       }
       
       // Check for wall collisions
@@ -106,61 +116,62 @@ export class Player extends THREE.Group {
     const horizontal = this.input.getAxis('horizontal')
     const vertical = this.input.getAxis('vertical')
     
-    // Debug: log player position when moving
-    if (Math.abs(horizontal) > 0.1 || Math.abs(vertical) > 0.1) {
-      console.log(`Player Y position: ${this.position.y.toFixed(2)}, Grounded: ${this.isGrounded}`)
-    }
-    
-    // Movement forces
-    const moveForce = new THREE.Vector3(
-      horizontal * this.speed * 50, // Convert speed to force
-      0,
-      -vertical * this.speed * 50
-    )
-    
-    // Apply movement force if we have a rigid body
+    // Check if grounded using both raycast and collision detection
     if (this.rigidBody) {
-      // Apply force for movement
-      this.physics.applyForce(this.rigidBody, moveForce)
+      const raycastGrounded = this.physics.isGrounded(this.rigidBody)
+      const collisionGrounded = this.groundContactCount > 0
+      this.isGrounded = raycastGrounded || collisionGrounded
       
-      // Limit horizontal velocity
-      const vel = this.rigidBody.velocity
-      const horizontalVel = new THREE.Vector2(vel.x, vel.z)
-      if (horizontalVel.length() > this.speed) {
-        horizontalVel.normalize().multiplyScalar(this.speed)
-        this.rigidBody.velocity.x = horizontalVel.x
-        this.rigidBody.velocity.z = horizontalVel.y
+      // Note: Raycast and collision detection may differ, that's fine - we use either method
+      
+      // Reset contact count for next frame
+      this.groundContactCount = 0
+    }
+    
+    // Apply movement if we have a rigid body
+    if (this.rigidBody) {
+      // Force-based movement for proper physics behavior
+      if (Math.abs(horizontal) > 0.01 || Math.abs(vertical) > 0.01) {
+        // Calculate movement force
+        const forceMultiplier = 100 // Adjust this value for responsiveness
+        const force = new THREE.Vector3(
+          horizontal * forceMultiplier,
+          0,
+          -vertical * forceMultiplier
+        )
+        
+        // Apply the force
+        this.physics.applyForce(this.rigidBody, force)
       }
-    } else {
-      // Fallback to direct movement if no physics
-      this.position.x += horizontal * this.speed * deltaTime
-      this.position.z += -vertical * this.speed * deltaTime
       
-      // Simple gravity
-      if (!this.isGrounded) {
-        this.velocity.y += this.gravity * deltaTime
-      }
-      
-      // Update position from velocity
-      this.position.y += this.velocity.y * deltaTime
-      
-      // Ground collision
-      if (this.position.y <= this.groundLevel) {
-        this.position.y = this.groundLevel
-        this.velocity.y = 0
-        this.isGrounded = true
-      } else {
-        this.isGrounded = false
+      // Limit maximum horizontal velocity to prevent runaway speed
+      const velocity = this.rigidBody.body.velocity
+      const maxSpeed = this.speed
+      const horizontalSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z)
+      if (horizontalSpeed > maxSpeed) {
+        const scale = maxSpeed / horizontalSpeed
+        velocity.x *= scale
+        velocity.z *= scale
       }
     }
     
-    // Jump
-    if (this.input.isActionJustPressed('jump') && this.isGrounded) {
+    // Jump - debug version
+    const jumpPressed = this.input.isActionJustPressed('jump')
+    if (jumpPressed) {
+      console.log('Jump pressed! isGrounded:', this.isGrounded, 'Y position:', this.rigidBody?.body.position.y, 'Y velocity:', this.rigidBody?.body.velocity.y)
+      
+      // Debug ground detection when jumping
       if (this.rigidBody) {
-        // Apply jump impulse
-        this.physics.applyImpulse(this.rigidBody, new THREE.Vector3(0, this.jumpSpeed, 0))
-      } else {
-        this.velocity.y = this.jumpSpeed
+        const raycastGrounded = this.physics.isGrounded(this.rigidBody)
+        console.log('Raycast grounded check:', raycastGrounded)
+      }
+    }
+    
+    if (jumpPressed && this.isGrounded) {
+      if (this.rigidBody) {
+        console.log('Jumping! Setting velocity to:', this.jumpSpeed, 'from Y velocity:', this.rigidBody.body.velocity.y)
+        // Directly set Y velocity for predictable jump height
+        this.rigidBody.body.velocity.y = this.jumpSpeed
       }
       this.isGrounded = false
       

@@ -247,7 +247,7 @@ export class CameraController {
     }
   }
   
-  private updateFirstPerson(deltaTime: number): void {
+  private updateFirstPerson(_deltaTime: number): void {
     if (!this.target) return
     
     // Position at target's eye level
@@ -272,7 +272,7 @@ export class CameraController {
     this.mouseDelta.set(0, 0)
   }
   
-  private updateThirdPerson(deltaTime: number): void {
+  private updateThirdPerson(_deltaTime: number): void {
     if (!this.target) return
     
     // Calculate desired position
@@ -317,7 +317,7 @@ export class CameraController {
     this.mouseDelta.set(0, 0)
   }
   
-  private updateOrbital(deltaTime: number): void {
+  private updateOrbital(_deltaTime: number): void {
     if (!this.target) return
     
     const targetPosition = this.target.position
@@ -507,19 +507,32 @@ export class CameraController {
   /**
    * Restore camera state
    */
-  setState(state: any): void {
-    if (state.mode) this.mode = state.mode
-    if (state.offset) this.offset.fromArray(state.offset)
-    if (state.distance) this.distance = state.distance
-    if (state.spherical) {
+  setState(state: unknown): void {
+    const s = state as {
+      mode?: CameraMode
+      offset?: number[]
+      distance?: number
+      spherical?: {
+        radius: number
+        phi: number
+        theta: number
+      }
+      pitch?: number
+      yaw?: number
+    }
+    
+    if (s.mode) this.mode = s.mode
+    if (s.offset) this.offset.fromArray(s.offset)
+    if (s.distance) this.distance = s.distance
+    if (s.spherical) {
       this.spherical.set(
-        state.spherical.radius,
-        state.spherical.phi,
-        state.spherical.theta
+        s.spherical.radius,
+        s.spherical.phi,
+        s.spherical.theta
       )
     }
-    if (state.pitch !== undefined) this.pitch = state.pitch
-    if (state.yaw !== undefined) this.yaw = state.yaw
+    if (s.pitch !== undefined) this.pitch = s.pitch
+    if (s.yaw !== undefined) this.yaw = s.yaw
   }
   
   /**

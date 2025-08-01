@@ -217,7 +217,7 @@
   "spawnPoints": [
     {
       "type": "player",
-      "position": [0, 1, 0]
+      "position": [0, 25, 0]
     },
     {
       "type": "collectible",

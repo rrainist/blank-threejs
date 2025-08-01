@@ -19,7 +19,7 @@
   "ground": {
     "size": [50, 50],
     "position": [0, 0, 0],
-    "color": "0x808080"
+    "color": "0x228B22"
   },
   "objects": [
     {
@@ -49,8 +49,7 @@
       "type": "box",
       "name": "Wall_West",
       "position": [-25, 5, 0],
-      "rotation": [0, 1.5708, 0],
-      "size": [50, 10, 1],
+      "size": [1, 10, 50],
       "color": "0x606060",
       "physics": {
         "isStatic": true,
@@ -61,8 +60,7 @@
       "type": "box",
       "name": "Wall_East",
       "position": [25, 5, 0],
-      "rotation": [0, -1.5708, 0],
-      "size": [50, 10, 1],
+      "size": [1, 10, 50],
       "color": "0x606060",
       "physics": {
         "isStatic": true,
@@ -143,7 +141,7 @@
   "spawnPoints": [
     {
       "type": "player",
-      "position": [0, 1, 10]
+      "position": [0, 20, 10]
     },
     {
       "type": "collectible",

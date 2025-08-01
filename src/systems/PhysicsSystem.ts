@@ -1,17 +1,18 @@
 import * as THREE from 'three'
+import * as CANNON from 'cannon-es'
 import { logger } from '../utils/Logger'
+
+export enum CollisionShape {
+  SPHERE = 'sphere',
+  BOX = 'box',
+  CAPSULE = 'capsule'
+}
 
 export interface RigidBody {
   object: THREE.Object3D
-  velocity: THREE.Vector3
-  acceleration: THREE.Vector3
-  mass: number
-  restitution: number // Bounciness: 0 = no bounce, 1 = perfect bounce
-  friction: number
-  isStatic: boolean
-  useGravity: boolean
-  collisionGroup: number
-  collisionMask: number
+  body: CANNON.Body
+  shape: CollisionShape
+  offset?: THREE.Vector3
 }
 
 export interface CollisionInfo {
@@ -27,16 +28,13 @@ export type CollisionCallback = (collision: CollisionInfo) => void
 export class PhysicsSystem {
   private static instance: PhysicsSystem
   
-  // Physics settings
-  private gravity = new THREE.Vector3(0, -9.81, 0)
-  private fixedTimeStep = 1 / 60 // 60 FPS physics
-  private maxSubSteps = 3
-  private accumulator = 0
+  // Cannon world
+  private world: CANNON.World
   
-  // Bodies and collision tracking
-  private bodies: Set<RigidBody> = new Set()
+  // Body tracking
+  private bodies: Map<THREE.Object3D, RigidBody> = new Map()
+  private cannonToRigidBody: Map<CANNON.Body, RigidBody> = new Map()
   private collisionCallbacks: Map<RigidBody, CollisionCallback[]> = new Map()
-  private previousCollisions: Map<string, boolean> = new Map()
   
   // Collision groups (bit flags)
   static readonly COLLISION_GROUP = {
@@ -50,7 +48,18 @@ export class PhysicsSystem {
   }
   
   private constructor() {
-    logger.info('PhysicsSystem initialized')
+    // Initialize Cannon world
+    this.world = new CANNON.World({
+      gravity: new CANNON.Vec3(0, -30, 0) // Stronger gravity for better game feel
+    })
+    
+    // Performance settings
+    this.world.defaultContactMaterial.friction = 0.4
+    this.world.defaultContactMaterial.restitution = 0.3
+    this.world.broadphase = new CANNON.SAPBroadphase(this.world)
+    ;(this.world.solver as any).iterations = 10
+    
+    logger.info('PhysicsSystem initialized with Cannon-es')
   }
   
   static getInstance(): PhysicsSystem {
@@ -74,40 +83,118 @@ export class PhysicsSystem {
       velocity: THREE.Vector3
       collisionGroup: number
       collisionMask: number
+      shape?: CollisionShape
+      radius?: number
+      halfExtents?: THREE.Vector3
+      height?: number
     }> = {}
   ): RigidBody {
-    const body: RigidBody = {
-      object,
-      velocity: options.velocity || new THREE.Vector3(),
-      acceleration: new THREE.Vector3(),
-      mass: options.mass ?? 1,
-      restitution: options.restitution ?? 0.5,
-      friction: options.friction ?? 0.5,
-      isStatic: options.isStatic ?? false,
-      useGravity: options.useGravity ?? true,
-      collisionGroup: options.collisionGroup ?? PhysicsSystem.COLLISION_GROUP.DEFAULT,
-      collisionMask: options.collisionMask ?? -1 // Collide with everything by default
+    // Create appropriate Cannon shape
+    let cannonShape: CANNON.Shape
+    let shape = options.shape || CollisionShape.BOX
+    
+    if (shape === CollisionShape.SPHERE || (object instanceof THREE.Mesh && object.geometry?.type === 'SphereGeometry')) {
+      const radius = options.radius || 1
+      cannonShape = new CANNON.Sphere(radius)
+      shape = CollisionShape.SPHERE
+    } else if (shape === CollisionShape.CAPSULE) {
+      // Cannon doesn't have capsule, approximate with box
+      const radius = options.radius || 0.5
+      const height = options.height || 1
+      cannonShape = new CANNON.Box(new CANNON.Vec3(radius, (height + 2 * radius) / 2, radius))
+      shape = CollisionShape.CAPSULE
+    } else {
+      // Default to box
+      let halfExtents = options.halfExtents
+      if (!halfExtents && object instanceof THREE.Mesh && object.geometry) {
+        // Auto-detect from geometry
+        const geometry = object.geometry
+        if (geometry.type === 'BoxGeometry') {
+          const box = geometry as THREE.BoxGeometry
+          const params = box.parameters
+          halfExtents = new THREE.Vector3(
+            params.width / 2,
+            params.height / 2,
+            params.depth / 2
+          ).multiply(object.scale)
+        }
+      }
+      halfExtents = halfExtents || new THREE.Vector3(0.5, 0.5, 0.5)
+      cannonShape = new CANNON.Box(new CANNON.Vec3(halfExtents.x, halfExtents.y, halfExtents.z))
+      shape = CollisionShape.BOX
     }
     
-    this.bodies.add(body)
-    return body
+    // Create Cannon body
+    const body = new CANNON.Body({
+      mass: options.isStatic ? 0 : (options.mass ?? 1),
+      shape: cannonShape,
+      position: new CANNON.Vec3(object.position.x, object.position.y, object.position.z),
+      fixedRotation: shape === CollisionShape.CAPSULE // Prevent capsule from rotating
+    })
+    
+    // Set properties
+    body.material = new CANNON.Material({
+      friction: options.friction ?? 0.4,
+      restitution: options.restitution ?? 0.3
+    })
+    
+    // Set collision filtering
+    body.collisionFilterGroup = options.collisionGroup ?? PhysicsSystem.COLLISION_GROUP.DEFAULT
+    body.collisionFilterMask = options.collisionMask ?? -1
+    
+    // Set initial velocity
+    if (options.velocity) {
+      body.velocity.set(options.velocity.x, options.velocity.y, options.velocity.z)
+    }
+    
+    // Add to world
+    this.world.addBody(body)
+    
+    // Create rigid body wrapper
+    const rigidBody: RigidBody = {
+      object,
+      body,
+      shape
+    }
+    
+    // Store mappings
+    this.bodies.set(object, rigidBody)
+    this.cannonToRigidBody.set(body, rigidBody)
+    
+    // Setup collision events
+    body.addEventListener('collide', (event: any) => {
+      const otherBody = event.body as CANNON.Body
+      const otherRigidBody = this.cannonToRigidBody.get(otherBody)
+      if (otherRigidBody) {
+        const callbacks = this.collisionCallbacks.get(rigidBody) || []
+        callbacks.forEach(callback => {
+          const contact = event.contact as CANNON.ContactEquation
+          const normal = new THREE.Vector3(contact.ni.x, contact.ni.y, contact.ni.z)
+          const point = new THREE.Vector3(contact.ri.x, contact.ri.y, contact.ri.z)
+          point.add(object.position)
+          
+          callback({
+            bodyA: rigidBody,
+            bodyB: otherRigidBody,
+            normal,
+            depth: 0, // Cannon doesn't provide penetration depth easily
+            contactPoint: point
+          })
+        })
+      }
+    })
+    
+    return rigidBody
   }
   
   /**
    * Remove a rigid body from the physics system
    */
-  removeRigidBody(body: RigidBody): void {
-    this.bodies.delete(body)
-    this.collisionCallbacks.delete(body)
-    
-    // Clean up collision history
-    const keysToRemove: string[] = []
-    this.previousCollisions.forEach((_, key) => {
-      if (key.includes(body.object.uuid)) {
-        keysToRemove.push(key)
-      }
-    })
-    keysToRemove.forEach(key => this.previousCollisions.delete(key))
+  removeRigidBody(rigidBody: RigidBody): void {
+    this.world.removeBody(rigidBody.body)
+    this.bodies.delete(rigidBody.object)
+    this.cannonToRigidBody.delete(rigidBody.body)
+    this.collisionCallbacks.delete(rigidBody)
   }
   
   /**
@@ -136,22 +223,14 @@ export class PhysicsSystem {
    * Apply force to a body
    */
   applyForce(body: RigidBody, force: THREE.Vector3): void {
-    if (body.isStatic || body.mass === 0) return
-    
-    // F = ma, so a = F/m
-    const acceleration = force.clone().divideScalar(body.mass)
-    body.acceleration.add(acceleration)
+    body.body.applyForce(new CANNON.Vec3(force.x, force.y, force.z))
   }
   
   /**
    * Apply impulse to a body (instant velocity change)
    */
   applyImpulse(body: RigidBody, impulse: THREE.Vector3): void {
-    if (body.isStatic || body.mass === 0) return
-    
-    // J = mv, so v = J/m
-    const velocityChange = impulse.clone().divideScalar(body.mass)
-    body.velocity.add(velocityChange)
+    body.body.applyImpulse(new CANNON.Vec3(impulse.x, impulse.y, impulse.z))
   }
   
   /**
@@ -159,9 +238,9 @@ export class PhysicsSystem {
    */
   setGravity(gravity: THREE.Vector3 | number): void {
     if (typeof gravity === 'number') {
-      this.gravity.set(0, -gravity, 0)
+      this.world.gravity.set(0, -gravity, 0)
     } else {
-      this.gravity.copy(gravity)
+      this.world.gravity.set(gravity.x, gravity.y, gravity.z)
     }
   }
   
@@ -169,191 +248,42 @@ export class PhysicsSystem {
    * Update physics simulation
    */
   update(deltaTime: number): void {
-    // Fixed timestep with interpolation
-    this.accumulator += Math.min(deltaTime, 0.25) // Prevent spiral of death
+    // Step the physics world
+    this.world.step(1/60, deltaTime, 3)
     
-    let steps = 0
-    while (this.accumulator >= this.fixedTimeStep && steps < this.maxSubSteps) {
-      this.fixedUpdate(this.fixedTimeStep)
-      this.accumulator -= this.fixedTimeStep
-      steps++
-    }
-    
-    // Interpolate positions for smooth rendering
-    const alpha = this.accumulator / this.fixedTimeStep
-    this.interpolatePositions(alpha)
-  }
-  
-  private fixedUpdate(deltaTime: number): void {
-    // Apply forces and update velocities
-    this.bodies.forEach(body => {
-      if (body.isStatic) return
+    // Sync Three.js objects with physics bodies
+    this.bodies.forEach((rigidBody) => {
+      rigidBody.object.position.copy(rigidBody.body.position as any)
       
-      // Apply gravity
-      if (body.useGravity && body.mass > 0) {
-        const gravityForce = this.gravity.clone().multiplyScalar(body.mass)
-        this.applyForce(body, gravityForce)
+      // Don't update rotation for capsules
+      if (rigidBody.shape !== CollisionShape.CAPSULE) {
+        rigidBody.object.quaternion.copy(rigidBody.body.quaternion as any)
       }
-      
-      // Update velocity from acceleration
-      body.velocity.add(body.acceleration.clone().multiplyScalar(deltaTime))
-      
-      // Apply friction (simple linear dampening)
-      body.velocity.multiplyScalar(1 - body.friction * deltaTime)
-      
-      // Update position
-      const displacement = body.velocity.clone().multiplyScalar(deltaTime)
-      body.object.position.add(displacement)
-      
-      // Reset acceleration for next frame
-      body.acceleration.set(0, 0, 0)
     })
-    
-    // Check collisions
-    this.checkCollisions()
   }
   
-  private interpolatePositions(_alpha: number): void {
-    // For now, just use current positions
-    // In a more advanced system, you'd store previous positions
-    // and interpolate between them
-  }
-  
-  private checkCollisions(): void {
-    const bodiesArray = Array.from(this.bodies)
+  /**
+   * Check if a body is grounded (touching ground)
+   */
+  isGrounded(body: RigidBody, groundCheckDistance = 1.1): boolean {
+    // Cast a ray downward to check for ground
+    const from = new CANNON.Vec3(
+      body.body.position.x,
+      body.body.position.y,
+      body.body.position.z
+    )
+    const to = new CANNON.Vec3(
+      body.body.position.x,
+      body.body.position.y - groundCheckDistance - 2, // Longer ray
+      body.body.position.z
+    )
     
-    for (let i = 0; i < bodiesArray.length; i++) {
-      for (let j = i + 1; j < bodiesArray.length; j++) {
-        const bodyA = bodiesArray[i]
-        const bodyB = bodiesArray[j]
-        
-        // Check collision masks
-        if ((bodyA.collisionGroup & bodyB.collisionMask) === 0 ||
-            (bodyB.collisionGroup & bodyA.collisionMask) === 0) {
-          continue
-        }
-        
-        // Simple sphere collision detection
-        const collision = this.checkSphereSphereCollision(bodyA, bodyB)
-        if (collision) {
-          this.resolveCollision(collision)
-          this.notifyCollisionCallbacks(collision)
-        }
-      }
-    }
-  }
-  
-  private checkSphereSphereCollision(bodyA: RigidBody, bodyB: RigidBody): CollisionInfo | null {
-    // Get bounding spheres (simplified - assumes objects are roughly spherical)
-    const radiusA = this.getBoundingSphereRadius(bodyA.object)
-    const radiusB = this.getBoundingSphereRadius(bodyB.object)
+    const result = new CANNON.RaycastResult()
+    this.world.raycastClosest(from, to, {
+      collisionFilterMask: PhysicsSystem.COLLISION_GROUP.STATIC
+    }, result)
     
-    const distance = bodyA.object.position.distanceTo(bodyB.object.position)
-    const minDistance = radiusA + radiusB
-    
-    if (distance < minDistance) {
-      const normal = new THREE.Vector3()
-        .subVectors(bodyB.object.position, bodyA.object.position)
-        .normalize()
-      
-      const depth = minDistance - distance
-      const contactPoint = bodyA.object.position.clone()
-        .add(normal.clone().multiplyScalar(radiusA))
-      
-      return {
-        bodyA,
-        bodyB,
-        normal,
-        depth,
-        contactPoint
-      }
-    }
-    
-    return null
-  }
-  
-  private getBoundingSphereRadius(object: THREE.Object3D): number {
-    // Try to get actual geometry bounds
-    if (object instanceof THREE.Mesh && object.geometry) {
-      if (!object.geometry.boundingSphere) {
-        object.geometry.computeBoundingSphere()
-      }
-      return object.geometry.boundingSphere?.radius || 1
-    }
-    
-    // Fallback to scale-based estimation
-    const scale = object.scale
-    return Math.max(scale.x, scale.y, scale.z) * 0.5
-  }
-  
-  private resolveCollision(collision: CollisionInfo): void {
-    const { bodyA, bodyB, normal, depth } = collision
-    
-    // Skip if both are static
-    if (bodyA.isStatic && bodyB.isStatic) return
-    
-    // Separate objects
-    const totalMass = bodyA.mass + bodyB.mass
-    const separationA = bodyA.isStatic ? 0 : (bodyB.mass / totalMass) * depth
-    const separationB = bodyB.isStatic ? 0 : (bodyA.mass / totalMass) * depth
-    
-    bodyA.object.position.add(normal.clone().multiplyScalar(-separationA))
-    bodyB.object.position.add(normal.clone().multiplyScalar(separationB))
-    
-    // Calculate relative velocity
-    const relativeVelocity = new THREE.Vector3()
-      .subVectors(bodyB.velocity, bodyA.velocity)
-    
-    const velocityAlongNormal = relativeVelocity.dot(normal)
-    
-    // Don't resolve if objects are moving apart
-    if (velocityAlongNormal > 0) return
-    
-    // Calculate restitution (bounciness)
-    const restitution = Math.min(bodyA.restitution, bodyB.restitution)
-    
-    // Calculate impulse scalar
-    let impulseMagnitude = -(1 + restitution) * velocityAlongNormal
-    
-    if (!bodyA.isStatic && !bodyB.isStatic) {
-      impulseMagnitude /= (1 / bodyA.mass + 1 / bodyB.mass)
-    } else if (bodyA.isStatic) {
-      impulseMagnitude *= bodyB.mass
-    } else {
-      impulseMagnitude *= bodyA.mass
-    }
-    
-    // Apply impulse
-    const impulse = normal.clone().multiplyScalar(impulseMagnitude)
-    
-    if (!bodyA.isStatic) {
-      bodyA.velocity.sub(impulse.clone().divideScalar(bodyA.mass))
-    }
-    if (!bodyB.isStatic) {
-      bodyB.velocity.add(impulse.clone().divideScalar(bodyB.mass))
-    }
-  }
-  
-  private notifyCollisionCallbacks(collision: CollisionInfo): void {
-    // Create unique key for this collision pair
-    const key = [collision.bodyA.object.uuid, collision.bodyB.object.uuid]
-      .sort()
-      .join('-')
-    
-    // Mark collision as active
-    this.previousCollisions.set(key, true)
-    
-    // Notify callbacks
-    const callbacksA = this.collisionCallbacks.get(collision.bodyA) || []
-    const callbacksB = this.collisionCallbacks.get(collision.bodyB) || []
-    
-    callbacksA.forEach(callback => callback(collision))
-    callbacksB.forEach(callback => callback({
-      ...collision,
-      bodyA: collision.bodyB,
-      bodyB: collision.bodyA,
-      normal: collision.normal.clone().negate()
-    }))
+    return result.hasHit && result.distance <= groundCheckDistance
   }
   
   /**
@@ -369,77 +299,48 @@ export class PhysicsSystem {
     point: THREE.Vector3
     distance: number
   } | null {
-    const ray = new THREE.Ray(origin, direction.clone().normalize())
-    let closestHit: {
-      body: RigidBody
-      point: THREE.Vector3
-      distance: number
-    } | null = null
-    let closestDistance = maxDistance
+    const from = new CANNON.Vec3(origin.x, origin.y, origin.z)
+    const to = new CANNON.Vec3(
+      origin.x + direction.x * maxDistance,
+      origin.y + direction.y * maxDistance,
+      origin.z + direction.z * maxDistance
+    )
     
-    this.bodies.forEach(body => {
-      // Check collision mask
-      if ((body.collisionGroup & collisionMask) === 0) return
-      
-      // Simple sphere intersection
-      const radius = this.getBoundingSphereRadius(body.object)
-      const sphereCenter = body.object.position
-      
-      const toSphere = new THREE.Vector3().subVectors(sphereCenter, ray.origin)
-      const alongRay = toSphere.dot(ray.direction)
-      
-      if (alongRay < 0) return // Sphere is behind ray
-      
-      const closestPoint = ray.origin.clone()
-        .add(ray.direction.clone().multiplyScalar(alongRay))
-      
-      const distanceToCenter = closestPoint.distanceTo(sphereCenter)
-      
-      if (distanceToCenter <= radius) {
-        const distance = alongRay - Math.sqrt(radius * radius - distanceToCenter * distanceToCenter)
-        
-        if (distance < closestDistance && distance > 0) {
-          closestDistance = distance
-          closestHit = {
-            body,
-            point: ray.origin.clone().add(ray.direction.clone().multiplyScalar(distance)),
-            distance
-          }
+    const result = new CANNON.RaycastResult()
+    this.world.raycastClosest(from, to, {
+      collisionFilterMask: collisionMask
+    }, result)
+    
+    if (result.hasHit && result.body) {
+      const rigidBody = this.cannonToRigidBody.get(result.body)
+      if (rigidBody) {
+        return {
+          body: rigidBody,
+          point: new THREE.Vector3(
+            result.hitPointWorld.x,
+            result.hitPointWorld.y,
+            result.hitPointWorld.z
+          ),
+          distance: result.distance
         }
       }
-    })
+    }
     
-    return closestHit
-  }
-  
-  /**
-   * Get all bodies within a sphere
-   */
-  getBodiesInSphere(center: THREE.Vector3, radius: number, collisionMask = -1): RigidBody[] {
-    const bodies: RigidBody[] = []
-    
-    this.bodies.forEach(body => {
-      // Check collision mask
-      if ((body.collisionGroup & collisionMask) === 0) return
-      
-      const bodyRadius = this.getBoundingSphereRadius(body.object)
-      const distance = body.object.position.distanceTo(center)
-      
-      if (distance <= radius + bodyRadius) {
-        bodies.push(body)
-      }
-    })
-    
-    return bodies
+    return null
   }
   
   /**
    * Clear all bodies
    */
   clear(): void {
+    // Remove all bodies from world
+    this.bodies.forEach((rigidBody) => {
+      this.world.removeBody(rigidBody.body)
+    })
+    
     this.bodies.clear()
+    this.cannonToRigidBody.clear()
     this.collisionCallbacks.clear()
-    this.previousCollisions.clear()
   }
   
   /**
@@ -451,7 +352,21 @@ export class PhysicsSystem {
   } {
     return {
       bodyCount: this.bodies.size,
-      activeCollisions: this.previousCollisions.size
+      activeCollisions: this.world.contacts.length
     }
+  }
+  
+  /**
+   * Get rigid body for an object
+   */
+  getRigidBody(object: THREE.Object3D): RigidBody | undefined {
+    return this.bodies.get(object)
+  }
+  
+  /**
+   * Direct access to Cannon world for advanced usage
+   */
+  getWorld(): CANNON.World {
+    return this.world
   }
 }

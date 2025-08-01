@@ -531,8 +531,8 @@ class GameApp {
     this.player = new Player()
     this.scene.add(this.player)
     
-    // Initialize player physics - DISABLED until we fix box collision
-    // this.player.initPhysics()
+    // Initialize player physics with proper box collision
+    this.player.initPhysics()
     
     // Setup camera to follow player
     this.cameraController.setMode(CameraMode.THIRD_PERSON)
@@ -558,9 +558,41 @@ class GameApp {
       this.spawnLevel2Enemies()
     }
     
-    // Reset player position
+    // Reset player position using spawn point from level data
     if (this.player) {
-      this.player.position.set(0, 1, 0)
+      const playerSpawn = this.levelManager.getRandomSpawnPoint('player')
+      if (playerSpawn) {
+        this.player.position.set(
+          playerSpawn.position[0],
+          playerSpawn.position[1],
+          playerSpawn.position[2]
+        )
+        
+        // Also update physics body position
+        const rigidBody = this.physicsSystem.getRigidBody(this.player)
+        if (rigidBody) {
+          rigidBody.body.position.set(
+            playerSpawn.position[0],
+            playerSpawn.position[1],
+            playerSpawn.position[2]
+          )
+          rigidBody.body.velocity.set(0, 0, 0) // Reset velocity
+        }
+        
+        logger.info(`Player spawned at: ${playerSpawn.position}`)
+      } else {
+        // Fallback position if no spawn point found
+        this.player.position.set(0, 1, 0)
+        
+        // Also update physics body position
+        const rigidBody = this.physicsSystem.getRigidBody(this.player)
+        if (rigidBody) {
+          rigidBody.body.position.set(0, 1, 0)
+          rigidBody.body.velocity.set(0, 0, 0)
+        }
+        
+        logger.warn('No player spawn point found, using default position')
+      }
     }
   }
   
@@ -582,99 +614,117 @@ class GameApp {
   }
 
   private spawnLevel1Collectibles(): void {
-    // City-themed collectible positions (strategically placed in open areas)
-    const positions = [
-      [0, 1, 0],      // Center of map
-      [-12, 1, 0],    // West open area
-      [12, 1, 0],     // East open area
-      [0, 1, -12],    // North open area
-      [0, 1, 12],     // South open area
-      [15, 1, 15],    // Southeast corner (open)
-      [-15, 1, -15],  // Northwest corner (open)
-      [15, 1, -15]    // Northeast corner (open)
-    ]
-    
+    // Use spawn points from level data
+    const collectibleSpawns = this.levelManager.getSpawnPoints('collectible')
     const colors = [0xffff00, 0xff00ff, 0x00ffff]
     
-    positions.forEach((pos, index) => {
+    collectibleSpawns.forEach((spawn, index) => {
       const collectible = this.collectiblePool.get()
       collectible.setValue(10 + index * 5)
       collectible.setColor(colors[index % colors.length])
-      collectible.position.set(pos[0], pos[1], pos[2])
-      collectible.baseY = pos[1]
+      collectible.position.set(
+        spawn.position[0],
+        spawn.position[1],
+        spawn.position[2]
+      )
+      collectible.baseY = spawn.position[1]
       this.scene.add(collectible)
     })
   }
   
   private spawnLevel2Collectibles(): void {
-    // Forest-themed collectible positions (in clearings between trees)
-    const positions = [
-      [0, 1, 0],      // Center clearing
-      [-15, 1, 0],    // West clearing
-      [15, 1, 0],     // East clearing  
-      [0, 1, -15],    // North clearing
-      [0, 1, 15],     // South clearing
-      [18, 1, 18],    // Far corner clearing
-      [-18, 1, -18],  // Opposite corner clearing
-      [18, 1, -18],   // Northeast clearing
-      [-18, 1, 18]    // Southwest clearing
-    ]
-    
+    // Use spawn points from level data
+    const collectibleSpawns = this.levelManager.getSpawnPoints('collectible')
     const colors = [0x00ff00, 0xffff00, 0xff8800] // Nature colors
     
-    positions.forEach((pos, index) => {
+    collectibleSpawns.forEach((spawn, index) => {
       const collectible = this.collectiblePool.get()
       collectible.setValue(15 + index * 5) // Higher value in level 2
       collectible.setColor(colors[index % colors.length])
-      collectible.position.set(pos[0], pos[1], pos[2])
-      collectible.baseY = pos[1]
+      collectible.position.set(
+        spawn.position[0],
+        spawn.position[1],
+        spawn.position[2]
+      )
+      collectible.baseY = spawn.position[1]
       this.scene.add(collectible)
     })
   }
 
   private spawnLevel1Enemies(): void {
-    // City enemies - more mechanical/robotic theme
-    const patrolEnemy1 = new Enemy(EnemyType.PATROL, 0xff0000)
-    patrolEnemy1.position.set(10, 1, 10)
-    patrolEnemy1.setTarget(this.player!)
-    patrolEnemy1.setPatrolPoints([
-      new THREE.Vector3(10, 1, 10),
-      new THREE.Vector3(15, 1, 10),
-      new THREE.Vector3(15, 1, 15),
-      new THREE.Vector3(10, 1, 15)
-    ])
-    this.scene.add(patrolEnemy1)
+    // Use spawn points from level data
+    const enemySpawns = this.levelManager.getSpawnPoints('enemy')
     
-    // Spawn shooter enemy in city
-    const shooterEnemy = new Enemy(EnemyType.SHOOTER, 0x0000ff)
-    shooterEnemy.position.set(-15, 1, 0)
-    shooterEnemy.setTarget(this.player!)
-    this.scene.add(shooterEnemy)
+    enemySpawns.forEach(spawn => {
+      const enemyType = spawn.data?.enemyType || 'patrol'
+      let enemy: Enemy
+      
+      switch (enemyType) {
+        case 'patrol':
+          enemy = new Enemy(EnemyType.PATROL, 0xff0000)
+          if (spawn.data?.patrolPoints) {
+            const patrolPoints = (spawn.data.patrolPoints as number[][]).map(
+              p => new THREE.Vector3(p[0], p[1], p[2])
+            )
+            enemy.setPatrolPoints(patrolPoints)
+          }
+          break
+        case 'shooter':
+          enemy = new Enemy(EnemyType.SHOOTER, 0x0000ff)
+          break
+        case 'chaser':
+          enemy = new Enemy(EnemyType.CHASER, 0x00ff00)
+          break
+        default:
+          enemy = new Enemy(EnemyType.PATROL, 0xff0000)
+      }
+      
+      enemy.position.set(
+        spawn.position[0],
+        spawn.position[1],
+        spawn.position[2]
+      )
+      enemy.setTarget(this.player!)
+      this.scene.add(enemy)
+    })
   }
   
   private spawnLevel2Enemies(): void {
-    // Forest enemies - more organic/creature theme
-    const patrolEnemy1 = new Enemy(EnemyType.PATROL, 0x8b4513) // Brown
-    patrolEnemy1.position.set(-10, 1, -10)
-    patrolEnemy1.setTarget(this.player!)
-    patrolEnemy1.setPatrolPoints([
-      new THREE.Vector3(-10, 1, -10),
-      new THREE.Vector3(-15, 1, -10),
-      new THREE.Vector3(-15, 1, -15),
-      new THREE.Vector3(-10, 1, -15)
-    ])
-    this.scene.add(patrolEnemy1)
+    // Use spawn points from level data
+    const enemySpawns = this.levelManager.getSpawnPoints('enemy')
     
-    // Spawn multiple chasers in forest
-    const chaserEnemy1 = new Enemy(EnemyType.CHASER, 0x228b22) // Forest green
-    chaserEnemy1.position.set(0, 1, -15)
-    chaserEnemy1.setTarget(this.player!)
-    this.scene.add(chaserEnemy1)
-    
-    const chaserEnemy2 = new Enemy(EnemyType.CHASER, 0x228b22)
-    chaserEnemy2.position.set(15, 1, 5)
-    chaserEnemy2.setTarget(this.player!)
-    this.scene.add(chaserEnemy2)
+    enemySpawns.forEach(spawn => {
+      const enemyType = spawn.data?.enemyType || 'patrol'
+      let enemy: Enemy
+      
+      switch (enemyType) {
+        case 'patrol':
+          enemy = new Enemy(EnemyType.PATROL, 0x8b4513) // Brown
+          if (spawn.data?.patrolPoints) {
+            const patrolPoints = (spawn.data.patrolPoints as number[][]).map(
+              p => new THREE.Vector3(p[0], p[1], p[2])
+            )
+            enemy.setPatrolPoints(patrolPoints)
+          }
+          break
+        case 'shooter':
+          enemy = new Enemy(EnemyType.SHOOTER, 0x0000ff)
+          break
+        case 'chaser':
+          enemy = new Enemy(EnemyType.CHASER, 0x228b22) // Forest green
+          break
+        default:
+          enemy = new Enemy(EnemyType.PATROL, 0x8b4513)
+      }
+      
+      enemy.position.set(
+        spawn.position[0],
+        spawn.position[1],
+        spawn.position[2]
+      )
+      enemy.setTarget(this.player!)
+      this.scene.add(enemy)
+    })
   }
 
   private createDebugUI(): void {

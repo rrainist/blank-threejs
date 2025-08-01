@@ -11,6 +11,7 @@
     "lint": "eslint src --ext ts,js --report-unused-disable-directives --max-warnings 20"
   },
   "dependencies": {
+    "cannon-es": "^0.20.0",
     "three": "^0.160.1"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { AssetLoader } from './AssetLoader'
-import { PhysicsSystem } from './PhysicsSystem'
+import { PhysicsSystem, CollisionShape } from './PhysicsSystem'
 import { logger } from '../utils/Logger'
 import { eventBus } from '../utils/EventBus'
 
@@ -167,9 +167,9 @@ export class LevelManager {
       this.scene.remove(obj)
       
       // Remove physics body if exists
-      const body = obj.userData.rigidBody
-      if (body) {
-        this.physicsSystem.removeRigidBody(body)
+      const rigidBody = this.physicsSystem.getRigidBody(obj)
+      if (rigidBody) {
+        this.physicsSystem.removeRigidBody(rigidBody)
       }
       
       // Dispose geometry and materials
@@ -250,7 +250,7 @@ export class LevelManager {
     // Create a thin box instead of a plane for better physics collision
     const geometry = new THREE.BoxGeometry(ground.size[0], 0.2, ground.size[1])
     const material = new THREE.MeshPhongMaterial({
-      color: ground.color || 0x808080
+      color: ground.color || 0x228B22  // Forest green instead of gray
     })
     
     const mesh = new THREE.Mesh(geometry, material)
@@ -267,13 +267,15 @@ export class LevelManager {
     this.scene.add(mesh)
     this.levelObjects.push(mesh)
     
-    // Add physics body
-    const body = this.physicsSystem.createRigidBody(mesh, {
+    // Add physics body for ground
+    this.physicsSystem.createRigidBody(mesh, {
       mass: 0,
       isStatic: true,
-      collisionGroup: PhysicsSystem.COLLISION_GROUP.STATIC
+      shape: CollisionShape.BOX,
+      halfExtents: new THREE.Vector3(ground.size[0] / 2, 0.1, ground.size[1] / 2),
+      collisionGroup: PhysicsSystem.COLLISION_GROUP.STATIC,
+      friction: 0.1  // Low friction for good movement feel
     })
-    mesh.userData.rigidBody = body
   }
   
   private async createObject(objDef: LevelObject): Promise<THREE.Object3D | null> {
@@ -282,7 +284,7 @@ export class LevelManager {
     
     // Create geometry based on type
     switch (objDef.type) {
-      case 'box':
+      case 'box': {
         const boxSize = objDef.size || [1, 1, 1]
         geometry = new THREE.BoxGeometry(
           Array.isArray(boxSize) ? boxSize[0] : boxSize,
@@ -290,13 +292,15 @@ export class LevelManager {
           Array.isArray(boxSize) ? boxSize[2] : boxSize
         )
         break
+      }
       
-      case 'sphere':
+      case 'sphere': {
         const sphereRadius = Array.isArray(objDef.size) ? objDef.size[0] : (objDef.size || 1)
         geometry = new THREE.SphereGeometry(sphereRadius, 32, 16)
         break
+      }
       
-      case 'cylinder':
+      case 'cylinder': {
         const cylSize = objDef.size || [1, 2, 1]
         geometry = new THREE.CylinderGeometry(
           Array.isArray(cylSize) ? cylSize[0] : cylSize,
@@ -305,14 +309,16 @@ export class LevelManager {
           32
         )
         break
+      }
       
-      case 'plane':
+      case 'plane': {
         const planeSize = objDef.size || [1, 1]
         geometry = new THREE.PlaneGeometry(
           Array.isArray(planeSize) ? planeSize[0] : planeSize,
           Array.isArray(planeSize) ? planeSize[1] : planeSize
         )
         break
+      }
       
       case 'model':
         // TODO: Load GLTF model
@@ -385,14 +391,14 @@ export class LevelManager {
     
     // Add physics if specified
     if (objDef.physics) {
-      const body = this.physicsSystem.createRigidBody(mesh, {
+      this.physicsSystem.createRigidBody(mesh, {
         mass: objDef.physics.mass ?? 0,
         isStatic: objDef.physics.isStatic ?? true,
+        shape: objDef.type === 'sphere' ? CollisionShape.SPHERE : CollisionShape.BOX,
         collisionGroup: objDef.physics.collisionGroup ?? PhysicsSystem.COLLISION_GROUP.STATIC,
         restitution: objDef.physics.restitution ?? 0.3,
         friction: objDef.physics.friction ?? 0.5
       })
-      mesh.userData.rigidBody = body
     }
     
     return mesh
@@ -456,11 +462,10 @@ export class LevelManager {
     this.scene.add(object)
     
     if (addPhysics) {
-      const body = this.physicsSystem.createRigidBody(object, {
+      this.physicsSystem.createRigidBody(object, {
         isStatic: true,
         collisionGroup: PhysicsSystem.COLLISION_GROUP.STATIC
       })
-      object.userData.rigidBody = body
     }
   }
   
@@ -474,9 +479,9 @@ export class LevelManager {
       this.scene.remove(object)
       
       // Remove physics body
-      const body = object.userData.rigidBody
-      if (body) {
-        this.physicsSystem.removeRigidBody(body)
+      const rigidBody = this.physicsSystem.getRigidBody(object)
+      if (rigidBody) {
+        this.physicsSystem.removeRigidBody(rigidBody)
       }
     }
   }
