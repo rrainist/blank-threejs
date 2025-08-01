@@ -438,4 +438,24 @@ export class SceneManager {
       }
     })
   }
+
+  /**
+   * Clean up resources
+   */
+  dispose(): void {
+    // Clear current scene
+    if (this.currentSceneName) {
+      const config = this.scenes.get(this.currentSceneName)
+      if (config?.onUnload) {
+        config.onUnload()
+      }
+      this.clearScene()
+    }
+    
+    // Clear all registered scenes
+    this.scenes.clear()
+    this.currentSceneName = undefined
+    
+    logger.info('SceneManager disposed')
+  }
 }

@@ -659,4 +659,24 @@ export class EffectsSystem {
       trailPoolUtilization: this.trailPool.getStats().utilization
     }
   }
+
+  /**
+   * Clean up resources
+   */
+  dispose(): void {
+    // Clear all effects
+    this.clear()
+    
+    // Remove screen flash mesh from camera
+    if (this.screenFlashMesh && this.screenFlashMesh.parent) {
+      this.screenFlashMesh.parent.remove(this.screenFlashMesh)
+    }
+    
+    // Dispose textures
+    if (this.defaultParticleTexture) {
+      this.defaultParticleTexture.dispose()
+    }
+    
+    logger.info('EffectsSystem disposed')
+  }
 }

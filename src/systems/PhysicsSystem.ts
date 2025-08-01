@@ -369,4 +369,21 @@ export class PhysicsSystem {
   getWorld(): CANNON.World {
     return this.world
   }
+
+  /**
+   * Clean up resources
+   */
+  dispose(): void {
+    // Remove all bodies
+    this.bodies.forEach((rigidBody) => {
+      this.world.removeBody(rigidBody.body)
+    })
+    
+    // Clear all tracking
+    this.bodies.clear()
+    this.cannonToRigidBody.clear()
+    this.collisionCallbacks.clear()
+    
+    logger.info('PhysicsSystem disposed')
+  }
 }

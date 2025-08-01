@@ -1,3 +1,5 @@
+import { logger } from '../utils/Logger'
+
 export interface Timer {
   id: string
   duration: number
@@ -274,5 +276,13 @@ export class TimeManager {
     this.lastFpsUpdate = 0
     this.currentFps = 0
     this.clearAllTimers()
+  }
+
+  /**
+   * Clean up resources
+   */
+  dispose(): void {
+    this.clearAllTimers()
+    logger.info('TimeManager disposed')
   }
 }

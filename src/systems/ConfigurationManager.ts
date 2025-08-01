@@ -362,4 +362,14 @@ export class ConfigurationManager {
       }
     }
   }
+
+  /**
+   * Clean up resources
+   */
+  dispose(): void {
+    // Clear all listeners
+    this.listeners.clear()
+    
+    logger.info('ConfigurationManager disposed')
+  }
 }

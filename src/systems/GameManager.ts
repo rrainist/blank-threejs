@@ -291,4 +291,12 @@ export class GameManager {
     logger.info('Victory! Final score:', this.gameData.score)
     // You can add more victory logic here
   }
+
+  /**
+   * Clean up resources
+   */
+  dispose(): void {
+    this.stateChangeCallbacks.clear()
+    logger.info('GameManager disposed')
+  }
 }

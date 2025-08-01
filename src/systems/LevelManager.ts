@@ -492,4 +492,17 @@ export class LevelManager {
       }
     }
   }
+
+  /**
+   * Clean up resources
+   */
+  dispose(): void {
+    // Clear the current level
+    this.clearLevel()
+    
+    // Reset all data
+    this.currentLevel = undefined
+    
+    logger.info('LevelManager disposed')
+  }
 }

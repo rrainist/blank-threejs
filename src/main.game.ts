@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 import { createScene } from './scene'
-import { handleResize } from './utils/resize'
 import { GameManager, GameState } from './systems/GameManager'
 import { TimeManager } from './systems/TimeManager'
 import { InputManager } from './systems/InputManager'
@@ -261,6 +260,13 @@ class GameApp {
     this.inputManager.addAction('save', { keys: ['F5'] })
     this.inputManager.addAction('load', { keys: ['F9'] })
     this.inputManager.addAction('debugPhysics', { keys: ['F1'] })
+    
+    // Camera control actions
+    this.inputManager.addAction('cameraDefault', { keys: ['1'] })
+    this.inputManager.addAction('cameraIsometric', { keys: ['2'] })
+    this.inputManager.addAction('cameraTopDown', { keys: ['3'] })
+    this.inputManager.addAction('cameraOrtho', { keys: ['4'] })
+    this.inputManager.addAction('cameraPerspective', { keys: ['5'] })
     
     // Mouse click for shooting
     window.addEventListener('click', this.onMouseClick.bind(this))
@@ -952,21 +958,21 @@ class GameApp {
   }
   
   private loadPlayerPreferences(): void {
-    const preferences = this.storage.get('playerPreferences')
+    const preferences = this.storage.load('playerPreferences')
     
     if (preferences) {
       // Load audio mute state
       if (preferences.audioMuted !== undefined) {
         if (preferences.audioMuted) {
-          this.audioManager.mute()
+          this.audioManager.setMuted(true)
         } else {
-          this.audioManager.unmute()
+          this.audioManager.setMuted(false)
         }
       }
       
       // Load camera mode
       if (preferences.cameraMode) {
-        this.cameraController.setMode(preferences.cameraMode)
+        this.cameraController.setMode(preferences.cameraMode as CameraMode)
       }
       
       // Load camera type
@@ -982,7 +988,7 @@ class GameApp {
       
       // Load debug mode
       if (preferences.debugMode !== undefined) {
-        this.uiManager.setDebugMode(preferences.debugMode)
+        this.uiManager.setDebugMode(preferences.debugMode as boolean)
         if (this.debugInfo) {
           this.debugInfo.style.display = preferences.debugMode ? 'block' : 'none'
         }
@@ -1001,7 +1007,7 @@ class GameApp {
       lastSaved: Date.now()
     }
     
-    this.storage.set('playerPreferences', preferences)
+    this.storage.save('playerPreferences', preferences)
     logger.debug('Player preferences saved', preferences)
   }
   
@@ -1096,6 +1102,22 @@ class GameApp {
       }
     }
     
+    // Camera switching
+    if (this.inputManager.isActionJustPressed('cameraDefault')) {
+      this.cameraController.setDefaultView()
+    }
+    if (this.inputManager.isActionJustPressed('cameraIsometric')) {
+      this.cameraController.setIsometricView()
+    }
+    if (this.inputManager.isActionJustPressed('cameraTopDown')) {
+      this.cameraController.setTopDownView()
+    }
+    if (this.inputManager.isActionJustPressed('cameraOrtho')) {
+      this.cameraController.switchToOrthographic()
+    }
+    if (this.inputManager.isActionJustPressed('cameraPerspective')) {
+      this.cameraController.switchToPerspective()
+    }
     
     // Update game manager
     this.gameManager.update(deltaTime)

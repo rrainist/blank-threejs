@@ -131,6 +131,18 @@ export const SCENE = {
   WALL_HEIGHT: 10
 } as const
 
+// Field/Level Constants
+export const FIELD = {
+  WIDTH: 50,
+  HEIGHT: 50,
+  DEPTH: 50,
+  MIN_X: -25,
+  MAX_X: 25,
+  MIN_Z: -25,
+  MAX_Z: 25,
+  GROUND_Y: 0
+} as const
+
 // Input Constants
 export const INPUT = {
   MOUSE_SENSITIVITY: 0.01,

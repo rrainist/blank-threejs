@@ -147,14 +147,6 @@ export class CameraController {
     window.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false })
     window.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false })
     window.addEventListener('touchend', this.onTouchEnd.bind(this), { passive: false })
-    
-    // Keyboard shortcuts
-    this.inputManager.addAction('cameraMode1', { keys: ['1'] })
-    this.inputManager.addAction('cameraMode2', { keys: ['2'] })
-    this.inputManager.addAction('cameraMode3', { keys: ['3'] })
-    this.inputManager.addAction('cameraOrtho', { keys: ['4'] })
-    this.inputManager.addAction('cameraPerspective', { keys: ['5'] })
-    this.inputManager.addAction('cameraReset', { keys: ['0'] })
   }
   
   private loadConfiguration(): void {
@@ -203,6 +195,33 @@ export class CameraController {
     
     logger.info(`Camera mode changed to: ${mode}`)
     eventBus.emit('camera:mode:changed', { mode })
+  }
+
+  /**
+   * Set camera to default third-person view
+   */
+  setDefaultView(): void {
+    this.setMode(CameraMode.THIRD_PERSON)
+    this.offset.set(0, 20, 10)
+    this.distance = 30
+  }
+
+  /**
+   * Set camera to isometric view (45-degree angle)
+   */
+  setIsometricView(): void {
+    this.setMode(CameraMode.THIRD_PERSON)
+    this.offset.set(20, 20, 20)
+    this.distance = 35
+  }
+
+  /**
+   * Set camera to top-down view
+   */
+  setTopDownView(): void {
+    this.setMode(CameraMode.THIRD_PERSON)
+    this.offset.set(0, 30, 0.1)
+    this.distance = 30
   }
   
   /**
@@ -320,26 +339,6 @@ export class CameraController {
    * Update camera position and rotation
    */
   update(deltaTime: number): void {
-    // Check for mode switching - custom mapping for the three views
-    if (this.inputManager.isActionJustPressed('cameraMode1')) {
-      // Key 1: Default view (third person)
-      this.setMode(CameraMode.THIRD_PERSON)
-    } else if (this.inputManager.isActionJustPressed('cameraMode2')) {
-      // Key 2: 45-degree isometric view
-      this.setMode(CameraMode.THIRD_PERSON)
-      this.offset.set(20, 20, 20)
-      this.distance = 35
-    } else if (this.inputManager.isActionJustPressed('cameraMode3')) {
-      // Key 3: Top-down 2D view
-      this.setMode(CameraMode.THIRD_PERSON)
-      this.offset.set(0, 30, 0.1)
-      this.distance = 30
-    } else if (this.inputManager.isActionJustPressed('cameraOrtho')) {
-      this.switchToOrthographic()
-    } else if (this.inputManager.isActionJustPressed('cameraPerspective')) {
-      this.switchToPerspective()
-    }
-    
     switch (this.mode) {
       case CameraMode.FIRST_PERSON:
         this.updateFirstPerson(deltaTime)
@@ -671,9 +670,17 @@ export class CameraController {
    * Cleanup
    */
   dispose(): void {
-    window.removeEventListener('mousedown', this.onMouseDown.bind(this))
-    window.removeEventListener('mousemove', this.onMouseMove.bind(this))
-    window.removeEventListener('mouseup', this.onMouseUp.bind(this))
-    window.removeEventListener('wheel', this.onMouseWheel.bind(this))
+    // Remove mouse events
+    window.removeEventListener('mousedown', this.onMouseDown)
+    window.removeEventListener('mousemove', this.onMouseMove)
+    window.removeEventListener('mouseup', this.onMouseUp)
+    window.removeEventListener('wheel', this.onMouseWheel)
+    
+    // Remove touch events
+    window.removeEventListener('touchstart', this.onTouchStart)
+    window.removeEventListener('touchmove', this.onTouchMove)
+    window.removeEventListener('touchend', this.onTouchEnd)
+    
+    logger.info('CameraController disposed')
   }
 }

@@ -2,299 +2,594 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🚀 Getting Started - This is YOUR Game Now!
+
+**IMPORTANT**: This template is a starting point, not a rigid framework. The example game (`main.game.ts`) is just a demonstration - you should completely replace it with your own game! Feel free to:
+- Delete the entire example game and start fresh
+- Modify or replace any systems that don't fit your needs  
+- Add new systems and utilities as needed
+- Change the architecture to match your game's requirements
+
+Think of this as a "Hello World" for Three.js games - it shows you what's possible, but you're meant to build something entirely different on top of it.
+
 ## Commands
 
 ### Development
-- `npm run dev` - Start development server with HMR on port 3000
+- `npm run dev` - Start development server (main.ts - simple rotating cube)
+- `npm run dev:game` - Start with full game example (main.game.ts)
 - `npm run build` - TypeScript check and production build to `dist/`
 - `npm run preview` - Preview production build locally
-- `npm run lint` - Run ESLint with max 10 warnings allowed
+- `npm run lint` - Run ESLint
 
-### Testing
-No test framework configured. Consider using Jest (already in devDependencies) with `ts-jest` for TypeScript support.
+## Building Your Game
 
-## Architecture
+### Quick Start Options
 
-This is a game-ready Three.js TypeScript template with comprehensive systems for rapid game prototyping. It provides both a simple starter (`main.ts`) and a full game example (`main.game.ts`).
+1. **Start Fresh** (Recommended for new games):
+   ```typescript
+   // Replace main.ts with your game code
+   // Use the systems you need, ignore the rest
+   ```
 
-### Core Game Systems
+2. **Modify the Example**:
+   ```typescript
+   // Edit main.game.ts to transform it into your game
+   // Remove enemies, change player behavior, add new mechanics
+   ```
 
-The template uses a direct Three.js approach where game entities extend THREE.Group or THREE.Object3D. This provides maximum flexibility and simplicity for rapid prototyping.
+3. **Mix and Match**:
+   ```typescript
+   // Cherry-pick systems you like
+   // Write custom systems for unique features
+   ```
 
-#### System Managers
-- **GameManager** (`src/systems/GameManager.ts`): Game state machine (menu, playing, paused, game over), score/lives tracking, save/load functionality
-- **TimeManager** (`src/systems/TimeManager.ts`): Delta time, timers, FPS tracking, time scaling, frame-independent calculations
-- **InputManager** (`src/systems/InputManager.ts`): Unified input handling for keyboard, mouse, touch, and gamepad with action/axis mapping
-- **AssetLoader** (`src/systems/AssetLoader.ts`): Centralized asset loading for textures, models (GLTF), sounds, and JSON with progress tracking
-- **AudioManager** (`src/systems/AudioManager.ts`): Simple HTML5 audio playback for 2D sounds and music with volume controls
-- **ConfigurationManager** (`src/systems/ConfigurationManager.ts`): Centralized game configuration for graphics, audio, gameplay, and controls settings
-- **PhysicsSystem** (`src/systems/PhysicsSystem.ts`): Simple physics simulation with collision detection, forces, and raycasting
-- **EffectsSystem** (`src/systems/EffectsSystem.ts`): Particle effects, screen effects (shake, flash), and trail rendering
-- **CameraController** (`src/systems/CameraController.ts`): Multiple camera modes (first-person, third-person, orbital), smooth following, orthographic/perspective switching
-- **SceneManager** (`src/systems/SceneManager.ts`): Scene transitions, fade effects, scene configuration and presets, automatic cleanup
-- **UIManager** (`src/systems/UIManager.ts`): Screen management, HUD, pause menu, responsive design, event-driven updates
-- **LevelManager** (`src/systems/LevelManager.ts`): JSON-based level loading, spawn point management, level geometry creation
+## Available Systems
 
-#### Utilities
-- **EventBus** (`src/utils/EventBus.ts`): Decoupled communication between systems
-- **ObjectPool** (`src/utils/ObjectPool.ts`): Memory-efficient object reuse for bullets, particles, etc.
-- **Storage** (`src/systems/Storage.ts`): LocalStorage wrapper with versioning for save games and settings
+Here's what each system does and when to use it:
 
-### Game Implementation Example
+### Core Systems
 
-The template includes a complete example game (`main.game.ts`) demonstrating:
-- Player character with WASD movement and jumping
-- Shooting mechanics with mouse aiming and bullet projectiles
-- Multiple enemy types (patrol, shooter, chaser) with different AI behaviors
-- Collectible items with scoring and level progression
-- Health system with damage/death handling
-- Multiple camera modes with smooth following
-- Level loading from JSON files with spawn points
-- Debug UI with FPS and game state
-- Input handling for pause, restart, and debug spawning
-- Sound effects using actual audio files
-- Object pooling for bullets and collectibles
+#### GameManager
+Handles game flow and state. Use it for:
+- Game states (menu, playing, paused, game over)
+- Score and lives tracking  
+- Save/load game progress
+- Level progression
 
-### Usage Patterns
-
-#### Using the New Systems
-
-##### ConfigurationManager
 ```typescript
-const config = ConfigurationManager.getInstance()
-
-// Get settings
-const difficulty = config.get('gameplay', 'difficulty')
-const shadows = config.get('graphics', 'shadows')
-
-// Set settings
-config.set('audio', 'masterVolume', 0.8)
-config.set('graphics', 'quality', 'high')
-
-// Apply graphics preset
-config.applyGraphicsPreset('medium')
-
-// Listen for changes
-const unsubscribe = config.subscribe('graphics.shadows', (enabled) => {
-  renderer.shadowMap.enabled = enabled
-})
+const gameManager = GameManager.getInstance()
+gameManager.changeState(GameState.PLAYING)
+gameManager.addScore(100)
+if (gameManager.getLives() === 0) gameManager.gameOver()
 ```
 
-##### PhysicsSystem
+#### TimeManager  
+Manages all time-related operations. Use it for:
+- Getting frame-independent delta time
+- Creating timers and intervals
+- Time scaling (slow motion effects)
+- FPS monitoring
+
 ```typescript
-const physics = PhysicsSystem.getInstance()
-
-// Create rigid body for entity
-const body = physics.createRigidBody(entity, {
-  mass: 1,
-  restitution: 0.5,
-  useGravity: true,
-  collisionGroup: PhysicsSystem.COLLISION_GROUP.PLAYER
-})
-
-// Apply forces
-physics.applyForce(body, new THREE.Vector3(0, 100, 0))
-physics.applyImpulse(body, jumpImpulse)
-
-// Collision detection
-physics.onCollision(body, (collision) => {
-  console.log('Hit!', collision.bodyB.object.name)
-})
-
-// Update physics each frame
-physics.update(deltaTime)
+const timeManager = TimeManager.getInstance()
+const deltaTime = timeManager.getDeltaTime()
+timeManager.setTimeout(() => spawnEnemy(), 2000) // 2 seconds
+timeManager.setTimeScale(0.5) // Half speed
 ```
 
-##### EffectsSystem
+#### InputManager
+Handles all player input. Use it for:
+- Mapping keys/buttons to actions
+- Supporting keyboard, mouse, gamepad, touch
+- Checking input state (pressed, released, held)
+
 ```typescript
-const effects = EffectsSystem.getInstance()
-
-// Spawn explosion
-effects.explosion(position, {
-  color: 0xff6600,
-  size: 2,
-  count: 50
-})
-
-// Create sparkles
-effects.sparkle(collectible.position, {
-  color: 0x00ffff,
-  count: 20
-})
-
-// Add trail to moving object
-effects.startTrail(bullet, {
-  color: 0xffff00,
-  opacity: 0.6
-})
-
-// Screen effects
-effects.screenShake(0.5, 1.0) // duration, intensity
-effects.screenEffect('flash', 0.2, 0.8, { color: 0xffffff })
-
-// Update effects each frame
-effects.update(deltaTime)
+const input = InputManager.getInstance()
+input.addAction('jump', { keys: ['Space'], gamepadButtons: [0] })
+if (input.isActionJustPressed('jump')) player.jump()
+const moveX = input.getAxis('horizontal') // -1 to 1
 ```
 
 #### CameraController
+Manages the game camera. Use it for:
+- Different camera modes (first/third person, top-down)
+- Smooth camera following
+- Orthographic/perspective switching
+
 ```typescript
-const cameraController = CameraController.getInstance()
-
-// Set camera mode
-cameraController.setMode(CameraMode.THIRD_PERSON)
-cameraController.setMode(CameraMode.FIRST_PERSON)
-cameraController.setMode(CameraMode.ORBITAL)
-
-// Switch camera type
-cameraController.switchToOrthographic()
-cameraController.switchToPerspective()
-
-// Set target to follow
-cameraController.setTarget(player)
-
-// Configure camera
-cameraController.applyConfig({
-  distance: 15,
-  enableDamping: true,
-  dampingFactor: 0.05
-})
+const camera = CameraController.getInstance()
+camera.setTarget(player)
+camera.setIsometricView() // Or setTopDownView(), setDefaultView()
+camera.switchToOrthographic() // For 2D-style games
 ```
 
-#### LevelManager
+#### PhysicsSystem
+Simple physics for games. Use it for:
+- Collision detection between objects
+- Gravity and forces
+- Raycasting (line of sight, shooting)
+
 ```typescript
-const levelManager = LevelManager.getInstance()
+const physics = PhysicsSystem.getInstance()
+const body = physics.createRigidBody(player, {
+  shape: CollisionShape.CAPSULE,
+  mass: 1,
+  collisionGroup: PhysicsSystem.COLLISION_GROUP.PLAYER
+})
+physics.applyImpulse(body, jumpForce)
+```
 
-// Load level from JSON file
-await levelManager.loadLevelFromFile('assets/levels/level1-city.json')
+#### EffectsSystem
+Visual effects and polish. Use it for:
+- Particle effects (explosions, sparkles)
+- Screen shake and flash
+- Trail effects for projectiles
 
-// Get spawn points
-const playerSpawn = levelManager.getRandomSpawnPoint('player')
-const collectibleSpawns = levelManager.getSpawnPoints('collectible')
+```typescript
+const effects = EffectsSystem.getInstance()
+effects.explosion(enemyPosition, { size: 2, count: 50 })
+effects.screenShake(0.5, 1.0) // duration, intensity
+effects.startTrail(bullet, { color: 0xffff00 })
+```
 
-// Check boundaries
-if (levelManager.isInBounds(position)) {
-  // Position is within level boundaries
+#### AudioManager
+Sound and music playback. Use it for:
+- Playing sound effects
+- Background music
+- 3D positional audio
+- Volume control
+
+```typescript
+const audio = AudioManager.getInstance()
+audio.play2D('explosion', { volume: 0.5 })
+audio.play3D('footstep', position, { volume: 0.3 })
+audio.setMasterVolume(0.8)
+```
+
+#### LevelManager  
+Level loading and management. Use it for:
+- Loading levels from JSON files
+- Spawn point management
+- Creating level geometry
+- Boundary checking
+
+```typescript
+const levels = LevelManager.getInstance()
+await levels.loadLevelFromFile('assets/levels/level1.json')
+const playerSpawn = levels.getSpawnPoint('player')
+if (!levels.isInBounds(position)) player.die()
+```
+
+### Utility Systems
+
+#### EventBus
+Decoupled communication between systems:
+```typescript
+eventBus.on('player:died', () => gameManager.loseLife())
+eventBus.emit('enemy:spawned', { position, type })
+```
+
+#### ObjectPool  
+Efficient object reuse for bullets, particles, enemies:
+```typescript
+// Note: Requires arrow function for factory!
+const bulletPool = new ObjectPool(
+  () => new Bullet(),  // Factory function
+  50,                  // Pool size
+  100                  // Max size
+)
+const bullet = bulletPool.get()
+// Use bullet...
+bulletPool.release(bullet)
+```
+
+#### Storage
+Save/load game data:
+```typescript
+const storage = Storage.getInstance()
+storage.save('checkpoint', { level: 3, score: 1000 })
+const data = storage.load('checkpoint')
+```
+
+## Creating Your Game
+
+### Starting Fresh
+
+```typescript
+// main.ts - Your game entry point
+import * as THREE from 'three'
+import { GameManager, GameState } from './systems/GameManager'
+import { InputManager } from './systems/InputManager'
+import { CameraController } from './systems/CameraController'
+// Import only the systems you need!
+
+class MyGame {
+  private scene: THREE.Scene
+  private camera: THREE.Camera
+  private renderer: THREE.WebGLRenderer
+  
+  constructor() {
+    // Setup Three.js basics
+    this.scene = new THREE.Scene()
+    this.camera = new THREE.PerspectiveCamera(75, ...)
+    this.renderer = new THREE.WebGLRenderer()
+    
+    // Initialize systems you need
+    const input = InputManager.getInstance()
+    const gameManager = GameManager.getInstance()
+    const cameraController = CameraController.initialize(this.camera)
+    
+    // Setup your game
+    this.setupGame()
+  }
+  
+  private setupGame(): void {
+    // Your game-specific setup
+    // Create player, enemies, levels, etc.
+  }
 }
 ```
 
-#### Creating a New Entity
+### Common Game Patterns
+
+#### Creating a Player Character
 ```typescript
-class Enemy extends THREE.Group {
-  health: number = 50
-  speed: number = 3
-  mesh: THREE.Mesh
+class Player extends THREE.Group {
+  private velocity = new THREE.Vector3()
+  private health = 100
   
   constructor() {
     super()
     
-    // Create visual representation
-    const geometry = new THREE.BoxGeometry(1, 1, 1)
-    const material = new THREE.MeshPhongMaterial({ color: 0xff0000 })
-    this.mesh = new THREE.Mesh(geometry, material)
-    this.mesh.castShadow = true
-    this.add(this.mesh)
+    // Create visual mesh
+    const geometry = new THREE.CapsuleGeometry(0.5, 1, 4, 8)
+    const material = new THREE.MeshPhongMaterial({ color: 0x00ff00 })
+    const mesh = new THREE.Mesh(geometry, material)
+    this.add(mesh)
     
-    // Set user data for identification
-    this.userData.type = 'enemy'
+    // Add physics
+    const physics = PhysicsSystem.getInstance()
+    physics.createRigidBody(this, {
+      shape: CollisionShape.CAPSULE,
+      mass: 1,
+      collisionGroup: PhysicsSystem.COLLISION_GROUP.PLAYER
+    })
   }
   
   update(deltaTime: number): void {
-    // Update logic
-    this.position.x += this.speed * deltaTime
+    // Handle input
+    const input = InputManager.getInstance()
+    const moveX = input.getAxis('horizontal')
+    const moveZ = input.getAxis('vertical')
+    
+    // Move player
+    this.velocity.x = moveX * PLAYER_SPEED
+    this.velocity.z = moveZ * PLAYER_SPEED
+    
+    // Apply movement
+    this.position.add(this.velocity.clone().multiplyScalar(deltaTime))
   }
 }
 ```
 
-#### Using Systems
+#### Setting Up Game Loop
 ```typescript
-// Get system instances
-const gameManager = GameManager.getInstance()
-const inputManager = InputManager.getInstance()
-const timeManager = TimeManager.getInstance()
-
-// Use timers
-timeManager.setTimeout(() => {
-  console.log('Timer fired!')
-}, 2) // 2 seconds
-
-// Check input
-if (inputManager.isActionPressed('fire')) {
-  // Fire weapon
+private animate = (): void => {
+  requestAnimationFrame(this.animate)
+  
+  // Update systems
+  const deltaTime = this.timeManager.getDeltaTime()
+  this.inputManager.update()
+  
+  // Update game logic only when playing
+  if (this.gameManager.isInState(GameState.PLAYING)) {
+    this.physicsSystem.update(deltaTime)
+    this.player.update(deltaTime)
+    this.enemies.forEach(enemy => enemy.update(deltaTime))
+    this.effectsSystem.update(deltaTime)
+    this.cameraController.update(deltaTime)
+  }
+  
+  // Always update UI
+  this.uiManager.update(deltaTime)
+  
+  // Render
+  this.renderer.render(this.scene, this.camera)
 }
-
-// Save game
-gameManager.saveGame(0) // Save slot 0
 ```
 
-### Key Technical Details
-- Three.js v0.160+ with full TypeScript support
-- Vite for fast development and optimized builds
-- ES2020 target with modern JavaScript features
-- Direct Three.js entity architecture for simplicity
-- Event-driven communication
-- Memory pooling for performance
-- Save/load system with versioning
-- Comprehensive input system with remapping support
+#### Spawning Enemies with Object Pool
+```typescript
+// Setup enemy pool
+this.enemyPool = new ObjectPool(
+  () => new Enemy(),
+  20,  // initial size
+  50   // max size
+)
 
-### Game Controls
+// Spawn enemy
+spawnEnemy(position: THREE.Vector3): void {
+  const enemy = this.enemyPool.get()
+  enemy.position.copy(position)
+  enemy.reset() // Reset health, state, etc.
+  this.scene.add(enemy)
+  this.activeEnemies.push(enemy)
+}
 
-#### Player Controls
-- **WASD/Arrow Keys** - Move player
-- **Space** - Jump
-- **Left Click** - Shoot projectile at mouse cursor
-- **F** - Melee attack
-- **Right Mouse Button (hold)** - Rotate camera
+// Return to pool when dead
+killEnemy(enemy: Enemy): void {
+  this.scene.remove(enemy)
+  this.enemyPool.release(enemy)
+  this.activeEnemies = this.activeEnemies.filter(e => e !== enemy)
+}
+```
 
-#### Debug Controls
-- **C** - Spawn debug collectible
-- **R** - Restart game
-- **P** - Pause/unpause
-- **M** - Mute/unmute audio
-- **F5** - Save game
-- **F9** - Load game
-- **1/2/3** - Switch camera modes (first-person/third-person/orbital)
-- **4** - Switch to orthographic camera
-- **5** - Switch to perspective camera
+#### Implementing Game States
+```typescript
+// Listen for state changes
+this.gameManager.onStateChange((from, to) => {
+  switch(to) {
+    case GameState.MENU:
+      this.showMainMenu()
+      break
+    case GameState.PLAYING:
+      this.startGameplay()
+      break
+    case GameState.PAUSED:
+      this.showPauseMenu()
+      break
+    case GameState.GAME_OVER:
+      this.showGameOver()
+      break
+  }
+})
 
-### Level System
+// Handle pause
+if (input.isActionJustPressed('pause')) {
+  this.gameManager.togglePause()
+}
+```
 
-The game uses JSON-based level files stored in `assets/levels/`. Each level defines:
-- Environment settings (fog, lighting)
-- Ground properties
-- Static objects (walls, buildings, trees)
-- Spawn points for player, enemies, and collectibles
-- Level boundaries
+## Level Design
 
-Example level structure:
+### JSON Level Format
+Create levels in `assets/levels/` folder:
+
 ```json
 {
-  "name": "City Level",
+  "name": "Desert Ruins",
   "environment": {
-    "fogColor": "0xcccccc",
-    "ambientLight": { "color": "0x606060", "intensity": 1.0 }
+    "fogColor": "0xFFCC99",
+    "fogNear": 10,
+    "fogFar": 100,
+    "ambientLight": {
+      "color": "0x404040",
+      "intensity": 0.8
+    }
+  },
+  "ground": {
+    "size": [100, 100],
+    "color": "0xC19A6B"
   },
   "objects": [
     {
       "type": "box",
-      "position": [0, 5, 0],
-      "size": [10, 10, 10],
-      "color": "0x404040"
+      "position": [0, 5, -20],
+      "size": [10, 10, 2],
+      "color": "0x8B7355",
+      "castShadow": true
     }
   ],
   "spawnPoints": [
     { "type": "player", "position": [0, 1, 0] },
-    { "type": "collectible", "position": [5, 1, 5] }
+    { "type": "enemy", "position": [10, 1, -10] },
+    { "type": "collectible", "position": [-5, 1, 5] }
   ]
 }
 ```
 
-### Development Tips
-- Use `main.game.ts` as a reference for implementing game features
-- Extend THREE.Group or THREE.Object3D for new entity types
-- Use composition and mixins for reusable behaviors
-- Use the EventBus for loose coupling between systems
-- Leverage ObjectPool for frequently created/destroyed objects
-- TimeManager handles all timing needs (timers, delta time, lerping)
-- Camera uses orthographic projection by default for consistent game view
-- All collectibles and enemies are defined in level JSON files
-- Physics system uses capsule colliders for characters
+### Loading and Using Levels
+```typescript
+// Load level
+await levelManager.loadLevelFromFile('assets/levels/desert.json')
+
+// Spawn player at designated point
+const spawn = levelManager.getSpawnPoint('player')
+player.position.copy(spawn.position)
+
+// Spawn enemies at their points
+levelManager.getSpawnPoints('enemy').forEach(spawn => {
+  this.spawnEnemy(spawn.position)
+})
+```
+
+## Advanced Patterns
+
+### Custom Systems
+Create your own systems following the singleton pattern:
+
+```typescript
+export class InventorySystem {
+  private static instance: InventorySystem
+  private items: Map<string, number> = new Map()
+  
+  static getInstance(): InventorySystem {
+    if (!InventorySystem.instance) {
+      InventorySystem.instance = new InventorySystem()
+    }
+    return InventorySystem.instance
+  }
+  
+  addItem(itemId: string, count = 1): void {
+    const current = this.items.get(itemId) || 0
+    this.items.set(itemId, current + count)
+    eventBus.emit('inventory:changed', { itemId, count: current + count })
+  }
+  
+  dispose(): void {
+    this.items.clear()
+  }
+}
+```
+
+### Performance Optimization
+
+1. **Use Object Pools** for frequently created/destroyed objects:
+   - Bullets, particles, enemies, collectibles
+   
+2. **Batch Operations** where possible:
+   ```typescript
+   // Update all enemies in one pass
+   this.enemies.forEach(enemy => enemy.update(deltaTime))
+   ```
+   
+3. **Level of Detail (LOD)**:
+   ```typescript
+   const lod = new THREE.LOD()
+   lod.addLevel(highDetailMesh, 0)
+   lod.addLevel(mediumDetailMesh, 50)
+   lod.addLevel(lowDetailMesh, 100)
+   ```
+
+4. **Frustum Culling** is automatic in Three.js - just ensure:
+   ```typescript
+   mesh.frustumCulled = true // Default
+   ```
+
+## Game Architecture Tips
+
+### Entity Component Pattern
+While the template uses inheritance (extending THREE.Group), you can implement ECS if preferred:
+
+```typescript
+// Component
+interface HealthComponent {
+  current: number
+  max: number
+}
+
+// Entity
+class Entity {
+  components: Map<string, any> = new Map()
+  
+  addComponent(name: string, component: any): void {
+    this.components.set(name, component)
+  }
+  
+  getComponent<T>(name: string): T {
+    return this.components.get(name)
+  }
+}
+```
+
+### State Machines for AI
+```typescript
+enum EnemyState {
+  IDLE,
+  PATROL,
+  CHASE,
+  ATTACK
+}
+
+class Enemy extends THREE.Group {
+  private state = EnemyState.IDLE
+  
+  update(deltaTime: number): void {
+    switch(this.state) {
+      case EnemyState.IDLE:
+        this.checkForPlayer()
+        break
+      case EnemyState.PATROL:
+        this.followPath()
+        break
+      case EnemyState.CHASE:
+        this.chasePlayer()
+        break
+    }
+  }
+}
+```
+
+### Save System Integration
+```typescript
+// Define what to save
+interface SaveData {
+  playerPosition: number[]
+  playerHealth: number
+  currentLevel: string
+  inventory: Record<string, number>
+  gameTime: number
+}
+
+// Save game
+const saveData: SaveData = {
+  playerPosition: player.position.toArray(),
+  playerHealth: player.health,
+  currentLevel: 'level2',
+  inventory: inventorySystem.getAll(),
+  gameTime: timeManager.getElapsedTime()
+}
+storage.save('savegame', saveData)
+
+// Load game
+const data = storage.load('savegame') as SaveData
+if (data) {
+  player.position.fromArray(data.playerPosition)
+  player.health = data.playerHealth
+  await levelManager.loadLevelFromFile(data.currentLevel)
+}
+```
+
+## Quick Reference
+
+### System Initialization Order
+```typescript
+// 1. Core systems (no dependencies)
+const timeManager = TimeManager.getInstance()
+const inputManager = InputManager.getInstance()
+const gameManager = GameManager.getInstance()
+const storage = Storage.getInstance()
+const config = ConfigurationManager.getInstance()
+
+// 2. Systems that need initialization
+const audioManager = AudioManager.initialize()
+const physicsSystem = PhysicsSystem.getInstance()
+
+// 3. Systems that need scene/camera/renderer
+const cameraController = CameraController.initialize(camera)
+const sceneManager = SceneManager.initialize(scene, camera, renderer)
+const effectsSystem = EffectsSystem.initialize(scene, camera, renderer)
+const levelManager = LevelManager.initialize(scene)
+const uiManager = UIManager.initialize()
+```
+
+### Common Constants
+```typescript
+import { PHYSICS, PLAYER, ENEMY, FIELD, SCENE } from './constants/GameConstants'
+
+// Use predefined constants
+const jumpForce = PHYSICS.JUMP_FORCE
+const fieldWidth = FIELD.WIDTH
+const playerHealth = PLAYER.HEALTH
+```
+
+### Input Action Names (from example)
+These are just examples - define your own!
+- `'jump'` - Space key
+- `'fire'` - Left mouse button  
+- `'pause'` - Escape or P key
+- `'horizontal'` - A/D or Arrow keys (axis: -1 to 1)
+- `'vertical'` - W/S or Arrow keys (axis: -1 to 1)
+
+### Remember
+- This is YOUR game - delete anything you don't need
+- The example game is just one way to do things
+- Feel free to create your own systems and patterns
+- Performance > Features - only use what you need
+- Have fun and experiment!
+
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
