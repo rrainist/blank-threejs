@@ -21,6 +21,7 @@ import { Collectible } from './entities/Collectible'
 import { Enemy, EnemyType } from './entities/Enemy'
 import { ObjectPool } from './utils/ObjectPool'
 import { Bullet } from './entities/Bullet'
+import { Storage } from './systems/Storage'
 
 class GameApp {
   private scene!: THREE.Scene
@@ -41,6 +42,7 @@ class GameApp {
   private levelManager!: LevelManager
   private physicsSystem!: PhysicsSystem
   private effectsSystem!: EffectsSystem
+  private storage!: Storage
   
   // Game state
   private player?: Player
@@ -110,6 +112,7 @@ class GameApp {
     this.levelManager = LevelManager.initialize(this.scene)
     this.physicsSystem = PhysicsSystem.getInstance()
     this.effectsSystem = EffectsSystem.initialize(this.scene, this.camera, this.renderer)
+    this.storage = Storage.getInstance()
     
     // Initialize shooting systems
     this.initializeBulletPool()
@@ -928,6 +931,57 @@ class GameApp {
     }
   }
   
+  private loadPlayerPreferences(): void {
+    const preferences = this.storage.get('playerPreferences')
+    
+    if (preferences) {
+      // Load audio mute state
+      if (preferences.audioMuted !== undefined) {
+        if (preferences.audioMuted) {
+          this.audioManager.mute()
+        } else {
+          this.audioManager.unmute()
+        }
+      }
+      
+      // Skip camera preferences for now - they cause initialization issues
+      // // Load camera mode
+      // if (preferences.cameraMode) {
+      //   this.cameraController.setMode(preferences.cameraMode)
+      // }
+      
+      // // Load camera type
+      // if (preferences.cameraType === 'orthographic') {
+      //   this.cameraController.switchToOrthographic()
+      // } else if (preferences.cameraType === 'perspective') {
+      //   this.cameraController.switchToPerspective()
+      // }
+      
+      // Load debug mode
+      if (preferences.debugMode !== undefined) {
+        this.uiManager.setDebugMode(preferences.debugMode)
+        if (this.debugInfo) {
+          this.debugInfo.style.display = preferences.debugMode ? 'block' : 'none'
+        }
+      }
+      
+      logger.info('Player preferences loaded', preferences)
+    }
+  }
+  
+  private savePlayerPreferences(): void {
+    const preferences = {
+      audioMuted: this.audioManager.isMuted(),
+      cameraMode: this.cameraController.getMode(),
+      cameraType: this.camera instanceof THREE.OrthographicCamera ? 'orthographic' : 'perspective',
+      debugMode: this.uiManager.isDebugMode(),
+      lastSaved: Date.now()
+    }
+    
+    this.storage.set('playerPreferences', preferences)
+    logger.debug('Player preferences saved', preferences)
+  }
+  
   private checkAttackCollisions(attacker: Player): void {
     if (!attacker) return
     
@@ -1002,6 +1056,7 @@ class GameApp {
     if (this.inputManager.isActionJustPressed('mute')) {
       this.audioManager.toggleMute()
       logger.info(`Audio ${this.audioManager.isMuted() ? 'muted' : 'unmuted'}`)
+      this.savePlayerPreferences()
     }
     
     if (this.inputManager.isActionJustPressed('save')) {

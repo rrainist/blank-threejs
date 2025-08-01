@@ -203,6 +203,13 @@ export class CameraController {
   }
   
   /**
+   * Get current camera mode
+   */
+  getMode(): CameraMode {
+    return this.mode
+  }
+  
+  /**
    * Set camera target
    */
   setTarget(target: THREE.Object3D | null): void {

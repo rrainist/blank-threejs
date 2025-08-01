@@ -743,4 +743,18 @@ export class UIManager {
     this.activeScreens.clear()
     this.updateCallbacks.clear()
   }
+  
+  /**
+   * Get debug mode state
+   */
+  isDebugMode(): boolean {
+    return this.debugMode
+  }
+  
+  /**
+   * Set debug mode
+   */
+  setDebugMode(enabled: boolean): void {
+    this.debugMode = enabled
+  }
 }
