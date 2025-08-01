@@ -88,6 +88,11 @@ class GameApp {
       
       // Start animation loop
       this.animate()
+      
+      // Load player preferences after animation starts
+      setTimeout(() => {
+        this.loadPlayerPreferences()
+      }, 100)
     } catch (error) {
       this.handleWebGLError(error)
     }
@@ -259,6 +264,21 @@ class GameApp {
     
     // Mouse click for shooting
     window.addEventListener('click', this.onMouseClick.bind(this))
+    
+    // Camera change event - update renderer
+    eventBus.on('camera:changed', (event: { camera: THREE.Camera }) => {
+      this.camera = event.camera
+      // Update any other references that need the new camera
+    })
+    
+    // Camera preference events
+    eventBus.on('camera:modeChanged', () => {
+      this.savePlayerPreferences()
+    })
+    
+    eventBus.on('camera:typeChanged', () => {
+      this.savePlayerPreferences()
+    })
     
     // Player shoot event
     eventBus.on('player:shoot', (event: { origin: THREE.Vector3; direction: THREE.Vector3 }) => {
@@ -944,18 +964,21 @@ class GameApp {
         }
       }
       
-      // Skip camera preferences for now - they cause initialization issues
-      // // Load camera mode
-      // if (preferences.cameraMode) {
-      //   this.cameraController.setMode(preferences.cameraMode)
-      // }
+      // Load camera mode
+      if (preferences.cameraMode) {
+        this.cameraController.setMode(preferences.cameraMode)
+      }
       
-      // // Load camera type
-      // if (preferences.cameraType === 'orthographic') {
-      //   this.cameraController.switchToOrthographic()
-      // } else if (preferences.cameraType === 'perspective') {
-      //   this.cameraController.switchToPerspective()
-      // }
+      // Load camera type
+      if (preferences.cameraType === 'orthographic') {
+        this.cameraController.switchToOrthographic()
+        // Update camera reference after switch
+        this.camera = this.cameraController.getCamera()
+      } else if (preferences.cameraType === 'perspective') {
+        this.cameraController.switchToPerspective()
+        // Update camera reference after switch
+        this.camera = this.cameraController.getCamera()
+      }
       
       // Load debug mode
       if (preferences.debugMode !== undefined) {

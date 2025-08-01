@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { InputManager } from './InputManager'
 import { ConfigurationManager } from './ConfigurationManager'
 import { logger } from '../utils/Logger'
+import { eventBus } from '../utils/EventBus'
 
 export enum CameraMode {
   FIRST_PERSON = 'first_person',
@@ -184,7 +185,8 @@ export class CameraController {
         break
       
       case CameraMode.THIRD_PERSON:
-        this.offset.set(0, 20, 10)  // Much higher view to see more of the scene
+        // Original default view
+        this.offset.set(0, 20, 10)
         this.distance = 30
         break
       
@@ -200,6 +202,7 @@ export class CameraController {
     }
     
     logger.info(`Camera mode changed to: ${mode}`)
+    eventBus.emit('camera:mode:changed', { mode })
   }
   
   /**
@@ -232,6 +235,9 @@ export class CameraController {
       this.currentPosition.copy(this.camera.position)
       this.desiredPosition.copy(this.camera.position)
       
+      // Emit event for camera change
+      eventBus.emit('camera:changed', { camera: this.camera })
+      
       logger.info('Switched to orthographic camera')
       logger.debug(`Ortho camera position: ${this.camera.position.toArray()}`)
       logger.debug(`Ortho camera rotation: ${this.camera.rotation.toArray()}`)
@@ -251,6 +257,9 @@ export class CameraController {
       this.camera = this.perspectiveCamera
       this.currentPosition.copy(this.camera.position)
       this.desiredPosition.copy(this.camera.position)
+      
+      // Emit event for camera change
+      eventBus.emit('camera:changed', { camera: this.camera })
       
       logger.info('Switched to perspective camera')
     }
@@ -311,13 +320,20 @@ export class CameraController {
    * Update camera position and rotation
    */
   update(deltaTime: number): void {
-    // Check for mode switching
+    // Check for mode switching - custom mapping for the three views
     if (this.inputManager.isActionJustPressed('cameraMode1')) {
-      this.setMode(CameraMode.FIRST_PERSON)
-    } else if (this.inputManager.isActionJustPressed('cameraMode2')) {
+      // Key 1: Default view (third person)
       this.setMode(CameraMode.THIRD_PERSON)
+    } else if (this.inputManager.isActionJustPressed('cameraMode2')) {
+      // Key 2: 45-degree isometric view
+      this.setMode(CameraMode.THIRD_PERSON)
+      this.offset.set(20, 20, 20)
+      this.distance = 35
     } else if (this.inputManager.isActionJustPressed('cameraMode3')) {
-      this.setMode(CameraMode.ORBITAL)
+      // Key 3: Top-down 2D view
+      this.setMode(CameraMode.THIRD_PERSON)
+      this.offset.set(0, 30, 0.1)
+      this.distance = 30
     } else if (this.inputManager.isActionJustPressed('cameraOrtho')) {
       this.switchToOrthographic()
     } else if (this.inputManager.isActionJustPressed('cameraPerspective')) {
@@ -587,8 +603,8 @@ export class CameraController {
   reset(): void {
     switch (this.mode) {
       case CameraMode.THIRD_PERSON:
-        this.offset.set(0, 5, 10)
-        this.distance = 10
+        this.offset.set(0, 20, 10)
+        this.distance = 30
         break
       
       case CameraMode.ORBITAL:
