@@ -1,4 +1,4 @@
-FROM node:20-bullseye
+FROM node:24-bookworm
 
 # Avoid warnings by switching to noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -20,16 +20,19 @@ ENV ANTHROPIC_VERTEX_PROJECT_ID=sc-claude-code-prod
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     fish \
-    locales \
+    # locales \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the locale
-RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
-    dpkg-reconfigure --frontend=noninteractive locales && \
-    update-locale LANG=en_US.UTF-8
+# RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
+#     dpkg-reconfigure --frontend=noninteractive locales && \
+#     update-locale LANG=en_US.UTF-8
 
 # Install Claude Code CLI using npm
 RUN npm install -g @anthropic-ai/claude-code
+
+# Fix npm cache permissions
+RUN mkdir -p /home/node/.npm && chown -R node:node /home/node/.npm
 
 # Set up Fish as default shell for the node user
 RUN chsh -s /usr/bin/fish node
@@ -47,7 +50,7 @@ RUN mkdir -p /home/node/.config/fish && \
 USER node
 
 # Set up a nice terminal prompt
-RUN echo 'function fish_prompt; echo -n (set_color green)"➜ "(set_color blue)(prompt_pwd)(set_color normal)" $ "; end' >> /home/node/.config/fish/config.fish
+# RUN echo 'function fish_prompt; echo -n (set_color green)"➜ "(set_color blue)(prompt_pwd)(set_color normal)" $ "; end' >> /home/node/.config/fish/config.fish
 
 # Set up working directory
 WORKDIR /workspace
@@ -56,4 +59,4 @@ WORKDIR /workspace
 ENV DEBIAN_FRONTEND=dialog
 
 # Default command
-CMD ["fish"]
+# CMD ["fish"]
