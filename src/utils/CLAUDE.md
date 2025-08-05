@@ -5,45 +5,35 @@ This directory contains reusable utility classes and helper functions.
 ## Core Utilities
 
 ### EventBus
-A type-safe event system for decoupled communication between game systems.
+Simple event system for decoupled communication between game systems.
 
 ```typescript
-// Define events (from src/utils/EventBus.ts)
-export const GameEvents = {
+// Events defined in EventBus.ts
+export enum GameEvents {
+  // Game state
+  GAME_OVER = 'game:over',
+  
   // Player events
-  PLAYER_DAMAGE: 'player:damage',
-  PLAYER_DEATH: 'player:death',
-  PLAYER_HEAL: 'player:heal',
+  PLAYER_DEATH = 'player:death',
+  PLAYER_DAMAGE = 'player:damage',
   
-  // Game state events
-  GAME_START: 'game:start',
-  GAME_PAUSE: 'game:pause',
-  GAME_RESUME: 'game:resume',
-  GAME_OVER: 'game:over',
+  // Enemy events
+  ENEMY_DEATH = 'enemy:death',
   
-  // Gameplay events
-  ITEM_COLLECT: 'item:collect',
-  ENEMY_SPAWN: 'enemy:spawn',
-  ENEMY_DEATH: 'enemy:death',
-  ENEMY_ATTACK: 'enemy:attack',
-  LEVEL_COMPLETE: 'level:complete',
+  // Item events
+  ITEM_COLLECT = 'item:collect',
   
-  // System events
-  SCENE_LOADED: 'scene:loaded',
-  AUDIO_LOADED: 'audio:loaded',
-  SETTINGS_CHANGED: 'settings:changed'
-} as const
+  // Level events
+  LEVEL_COMPLETE = 'level:complete'
+}
 
 // Emit events
-eventBus.emit(GameEvents.PLAYER_DAMAGE, { 
-  player: playerRef, 
-  damage: 10,
-  source: enemy 
-})
+eventBus.emit(GameEvents.PLAYER_DAMAGE)
+eventBus.emit(GameEvents.ITEM_COLLECT, { itemType: 'coin', value: 10 })
 
-// Listen for events with proper typing
-const unsubscribe = eventBus.on(GameEvents.ITEM_COLLECT, (event: ItemCollectEvent) => {
-  console.log(`Collected ${event.item.name} worth ${event.value} points`)
+// Listen for events
+const unsubscribe = eventBus.on(GameEvents.ITEM_COLLECT, (data) => {
+  console.log('Collected item:', data)
 })
 
 // Clean up
@@ -151,22 +141,19 @@ window.addEventListener('resize', () => {
 
 ## Utility Patterns
 
-### Type-Safe Events
+### Event Usage
 ```typescript
-// Define event types
-interface GameEventMap {
-  'player:jump': { player: Player; height: number }
-  'item:collect': { item: Item; collector: Player }
-  'level:complete': { level: number; score: number }
-}
+// Simple event emission
+eventBus.emit(GameEvents.PLAYER_DAMAGE)
+eventBus.emit(GameEvents.ITEM_COLLECT, { value: 100 })
 
-// Create typed event bus
-class TypedEventBus<T extends Record<string, any>> {
-  emit<K extends keyof T>(event: K, data: T[K]): void
-  on<K extends keyof T>(event: K, handler: (data: T[K]) => void): () => void
-}
+// Listen and cleanup
+const unsubscribe = eventBus.on(GameEvents.ENEMY_DEATH, (data) => {
+  gameManager.addScore(100)
+})
 
-const gameEvents = new TypedEventBus<GameEventMap>()
+// Clean up when done
+unsubscribe()
 ```
 
 ### Performance Monitoring
@@ -240,10 +227,13 @@ function debugObject(obj: THREE.Object3D): void {
 
 ## Current Event Types
 
-The game uses typed events defined in `src/types/events.ts`:
-- `PlayerJumpEvent`, `PlayerAttackEvent`, `PlayerShootEvent`
-- `ItemCollectEvent`, `EnemyDeathEvent`, `EnemyAttackEvent`
-- `LevelCompleteEvent`, `SceneLoadedEvent`
+Events are defined in `src/utils/EventBus.ts`:
+- `GAME_OVER` - Game has ended
+- `PLAYER_DEATH` - Player died
+- `PLAYER_DAMAGE` - Player took damage
+- `ENEMY_DEATH` - Enemy defeated
+- `ITEM_COLLECT` - Item collected
+- `LEVEL_COMPLETE` - Level finished
 
 ## Best Practices
 

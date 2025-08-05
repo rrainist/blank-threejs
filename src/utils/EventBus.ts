@@ -1,4 +1,3 @@
-import { GameEventMap } from '../types/events'
 import { logger } from './Logger'
 
 export type EventCallback<T = unknown> = (data: T) => void
@@ -19,27 +18,23 @@ export class EventBus {
   /**
    * Subscribe to an event
    */
-  on<K extends keyof GameEventMap>(event: K, callback: EventCallback<GameEventMap[K]>): () => void
-  on<T = unknown>(event: string, callback: EventCallback<T>): () => void
-  on(event: string, callback: EventCallback): () => void {
+  on<T = unknown>(event: string, callback: EventCallback<T>): () => void {
     if (!this.events.has(event)) {
       this.events.set(event, new Set())
     }
     
-    this.events.get(event)!.add(callback)
+    this.events.get(event)!.add(callback as EventCallback)
     
     // Return unsubscribe function
-    return () => this.off(event, callback)
+    return () => this.off(event, callback as EventCallback)
   }
 
   /**
    * Subscribe to an event (only once)
    */
-  once<K extends keyof GameEventMap>(event: K, callback: EventCallback<GameEventMap[K]>): void
-  once<T = unknown>(event: string, callback: EventCallback<T>): void
-  once(event: string, callback: EventCallback): void {
+  once<T = unknown>(event: string, callback: EventCallback<T>): void {
     const wrapper = (data: unknown) => {
-      callback(data)
+      callback(data as T)
       this.off(event, wrapper)
     }
     this.on(event, wrapper)
@@ -61,9 +56,7 @@ export class EventBus {
   /**
    * Emit an event
    */
-  emit<K extends keyof GameEventMap>(event: K, data: GameEventMap[K]): void
-  emit<T = unknown>(event: string, data?: T): void
-  emit(event: string, data?: unknown): void {
+  emit<T = unknown>(event: string, data?: T): void {
     const callbacks = this.events.get(event)
     if (callbacks) {
       callbacks.forEach(callback => {
@@ -96,65 +89,26 @@ export class EventBus {
   listenerCount(event: string): number {
     return this.events.get(event)?.size || 0
   }
-
-  /**
-   * Get all event names
-   */
-  getEventNames(): string[] {
-    return Array.from(this.events.keys())
-  }
 }
 
-// Common game events
+// Essential game events only
 export enum GameEvents {
   // Game state
-  GAME_START = 'game:start',
-  GAME_PAUSE = 'game:pause',
-  GAME_RESUME = 'game:resume',
   GAME_OVER = 'game:over',
-  LEVEL_COMPLETE = 'level:complete',
   
   // Player events
-  PLAYER_SPAWN = 'player:spawn',
   PLAYER_DEATH = 'player:death',
   PLAYER_DAMAGE = 'player:damage',
-  PLAYER_HEAL = 'player:heal',
-  PLAYER_SCORE = 'player:score',
-  
-  // Entity events
-  ENTITY_SPAWN = 'entity:spawn',
-  ENTITY_DESTROY = 'entity:destroy',
-  ENTITY_COLLISION = 'entity:collision',
   
   // Enemy events
-  ENEMY_SPAWN = 'enemy:spawn',
   ENEMY_DEATH = 'enemy:death',
-  ENEMY_ATTACK = 'enemy:attack',
-  ENEMY_SHOOT = 'enemy:shoot',
-  
-  // Combat events
-  PROJECTILE_HIT = 'projectile:hit',
   
   // Item events
   ITEM_COLLECT = 'item:collect',
-  ITEM_USE = 'item:use',
   
-  // UI events
-  UI_SHOW = 'ui:show',
-  UI_HIDE = 'ui:hide',
-  UI_UPDATE = 'ui:update',
-  
-  // Audio events
-  AUDIO_PLAY = 'audio:play',
-  AUDIO_STOP = 'audio:stop',
-  AUDIO_VOLUME = 'audio:volume',
-  
-  // Save/Load events
-  SAVE_GAME = 'save:game',
-  LOAD_GAME = 'load:game',
-  SAVE_SETTINGS = 'save:settings',
-  LOAD_SETTINGS = 'load:settings'
+  // Level events
+  LEVEL_COMPLETE = 'level:complete'
 }
 
-// Export singleton instance for convenience
+// Export singleton instance
 export const eventBus = EventBus.getInstance()

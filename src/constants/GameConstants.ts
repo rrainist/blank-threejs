@@ -57,36 +57,15 @@ export const PLAYER = {
 
 // Enemy Constants
 export const ENEMY = {
-  PATROL: {
-    SPEED: 2,
-    HEALTH: 30,
-    COLOR: 0xff0000,
-    PATROL_WAIT_TIME: 2,
-    PATROL_RADIUS: 0.5
-  },
-  CHASER: {
-    SPEED: 3,
-    HEALTH: 30,
-    COLOR: 0xff00ff,
-    DETECTION_RANGE: 10
-  },
-  SHOOTER: {
-    SPEED: 2,
-    HEALTH: 50,
-    COLOR: 0x0000ff,
-    SHOOT_RANGE: 10,
-    PROJECTILE_SPEED: 10,
-    PROJECTILE_DAMAGE: 5,
-    PROJECTILE_LIFETIME: 3
-  },
-  COMMON: {
-    ATTACK_DAMAGE: 10,
-    ATTACK_COOLDOWN: 1,
-    DETECTION_RANGE: 10,
-    ATTACK_RANGE: 2,
-    LOOT_DROP_CHANCE: 0.3,
-    DEATH_POINTS: 50
-  }
+  SPEED: 3,
+  HEALTH: 50,
+  COLOR: 0xff0000,
+  EMISSIVE_COLOR: 0x440000,
+  ATTACK_DAMAGE: 10,
+  ATTACK_COOLDOWN: 1,
+  DETECTION_RANGE: 10,
+  ATTACK_RANGE: 2,
+  DEATH_POINTS: 100
 } as const
 
 // Collectible Constants
@@ -171,4 +150,22 @@ export const COLLISION_MASKS = {
   ENEMY: (1 << LAYERS.PLAYER) | (1 << LAYERS.ENVIRONMENT) | (1 << LAYERS.ENEMY),
   PROJECTILE: (1 << LAYERS.PLAYER) | (1 << LAYERS.ENVIRONMENT),
   PICKUP: (1 << LAYERS.PLAYER)
+} as const
+
+// Configuration constants (previously in ConfigurationManager)
+export const CONFIG = {
+  audio: {
+    masterVolume: 1.0,
+    sfxVolume: 1.0,
+    musicVolume: 0.7
+  },
+  graphics: {
+    shadowsEnabled: true,
+    particlesEnabled: true,
+    antialias: true
+  },
+  controls: {
+    mouseSensitivity: 1.0,
+    invertY: false
+  }
 } as const

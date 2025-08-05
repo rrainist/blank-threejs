@@ -101,9 +101,11 @@ export class UIManager {
     }
     
     this.activeScreens.add(id)
+    logger.debug(`Showing screen: ${id}, elements: ${screen.elements.size}`)
     
     // Show all elements in the screen
     screen.elements.forEach(element => {
+      logger.debug(`Showing element: ${element.id}`)
       this.showElement(element.id)
     })
     
@@ -173,9 +175,18 @@ export class UIManager {
       htmlElement.className = config.className
     }
     
+    // Apply styles but preserve display:none for initial state
     if (config.style) {
-      Object.assign(htmlElement.style, config.style)
+      const { display, ...otherStyles } = config.style as any
+      Object.assign(htmlElement.style, otherStyles)
+      // Store the intended display value for when element is shown
+      if (display) {
+        htmlElement.dataset.displayStyle = display
+      }
     }
+    
+    // Start hidden by default
+    htmlElement.style.display = 'none'
     
     if (config.innerHTML) {
       htmlElement.innerHTML = config.innerHTML
@@ -284,7 +295,9 @@ export class UIManager {
     if (!element) return
     
     element.visible = true
-    element.element.style.display = ''
+    // Use stored display style or default to empty string
+    const displayStyle = element.element.dataset.displayStyle || ''
+    element.element.style.display = displayStyle
     
     this.eventBus.emit('ui:element:shown', { elementId: id })
   }
@@ -367,23 +380,20 @@ export class UIManager {
    */
   private setupEventListeners(): void {
     // Listen for game state changes
-    this.eventBus.on('game:state:changed', (event: { newState: GameState }) => {
-      this.handleGameStateChange(event.newState)
+    this.eventBus.on('game:state:changed', (event: { from: GameState; to: GameState }) => {
+      this.handleGameStateChange(event.to)
     })
     
     // Listen for input events
-    this.inputManager.addAction('ui_cancel', { keys: ['Escape'] })
-    this.inputManager.addAction('ui_confirm', { keys: ['Enter', ' '] })
-    this.inputManager.addAction('ui_up', { keys: ['ArrowUp', 'w', 'W'] })
-    this.inputManager.addAction('ui_down', { keys: ['ArrowDown', 's', 'S'] })
-    this.inputManager.addAction('ui_left', { keys: ['ArrowLeft', 'a', 'A'] })
-    this.inputManager.addAction('ui_right', { keys: ['ArrowRight', 'd', 'D'] })
+    // Note: Simplified InputManager doesn't use action mapping anymore
+    // UI input is handled directly in update() method
   }
 
   /**
    * Handle game state changes
    */
   private handleGameStateChange(newState: GameState): void {
+    logger.debug(`UIManager: handleGameStateChange to ${newState}`)
     switch (newState) {
       case GameState.MENU:
         this.showScreen('mainMenu')
@@ -438,6 +448,9 @@ export class UIManager {
    * Create HUD elements
    */
   createHUD(): void {
+    // Create HUD screen
+    this.createScreen('hud')
+    
     // Score display
     this.createElement({
       id: 'score-display',
@@ -529,6 +542,9 @@ export class UIManager {
    * Create pause menu
    */
   createPauseMenu(): void {
+    // Create pause menu screen
+    this.createScreen('pauseMenu')
+    
     // Pause overlay
     this.createElement({
       id: 'pause-overlay',

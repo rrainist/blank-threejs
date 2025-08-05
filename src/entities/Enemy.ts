@@ -1,70 +1,38 @@
 import * as THREE from 'three'
-
-export enum EnemyType {
-  PATROL = 'patrol',
-  CHASER = 'chaser',
-  SHOOTER = 'shooter'
-}
+import { ENEMY, FIELD } from '../constants/GameConstants'
+import { PhysicsSystem, CollisionShape } from '../systems/PhysicsSystem'
+import { eventBus } from '../utils/EventBus'
 
 export class Enemy extends THREE.Group {
   // Properties
-  enemyType: EnemyType
   health: number
-  maxHealth: number
   speed: number
   attackDamage: number
-  attackRange: number = 2
-  attackCooldown: number
-  lastAttackTime: number = 0
-  detectionRange: number = 10
   
-  // Target
-  target?: THREE.Object3D
+  // Random movement
+  private targetPoint = new THREE.Vector3()
+  private reachedDistance = 2
   
   // Visual
   mesh: THREE.Mesh
-  originalColor: number
   
-  // Patrol behavior
-  patrolPoints: THREE.Vector3[] = []
-  currentPatrolIndex: number = 0
-  patrolWaitTime: number = 2
-  waitTimer: number = 0
+  // Movement
+  private moveDirection = new THREE.Vector3()
+  private lastMoveUpdate = 0
   
-  constructor(type: EnemyType = EnemyType.PATROL, color = 0xff0000) {
+  constructor() {
     super()
     
-    this.enemyType = type
-    this.originalColor = color
+    // Initialize properties from constants
+    this.health = ENEMY.HEALTH
+    this.speed = ENEMY.SPEED
+    this.attackDamage = ENEMY.ATTACK_DAMAGE
     
-    // Set properties based on type
-    switch (type) {
-      case EnemyType.CHASER:
-        this.speed = 3
-        this.health = 30
-        this.attackDamage = 15
-        break
-      case EnemyType.SHOOTER:
-        this.speed = 2
-        this.health = 50
-        this.attackDamage = 5
-        this.attackRange = 8
-        break
-      default: // PATROL
-        this.speed = 2
-        this.health = 30
-        this.attackDamage = 10
-        break
-    }
-    
-    this.maxHealth = this.health
-    this.attackCooldown = 1
-    
-    // Create visual based on type
-    const geometry = this.createGeometryForType(type)
+    // Create visual - simple red box
+    const geometry = new THREE.BoxGeometry(1, 1.5, 1)
     const material = new THREE.MeshPhongMaterial({ 
-      color,
-      emissive: color,
+      color: ENEMY.COLOR,
+      emissive: ENEMY.EMISSIVE_COLOR,
       emissiveIntensity: 0.2
     })
     
@@ -74,173 +42,120 @@ export class Enemy extends THREE.Group {
     this.add(this.mesh)
     
     // Set position
-    this.position.y = 1
+    this.position.y = 0.75 // Half height
     
     // Set user data
     this.userData.type = 'enemy'
-    this.userData.enemyType = type
     this.name = 'Enemy'
+    
+    // Initialize physics
+    this.initPhysics()
+    
+    // Set initial random target
+    this.generateRandomTarget()
   }
   
-  private createGeometryForType(type: EnemyType): THREE.BufferGeometry {
-    switch (type) {
-      case EnemyType.PATROL:
-        return new THREE.BoxGeometry(1, 1, 1)
-      case EnemyType.CHASER:
-        return new THREE.ConeGeometry(0.5, 1.5, 8)
-      case EnemyType.SHOOTER:
-        return new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8)
-      default:
-        return new THREE.SphereGeometry(0.5)
-    }
+  private initPhysics(): void {
+    const physics = PhysicsSystem.getInstance()
+    physics.createRigidBody(this, {
+      mass: 1,
+      restitution: 0,
+      friction: 0.5,
+      shape: CollisionShape.BOX,
+      halfExtents: new THREE.Vector3(0.5, 0.75, 0.5),
+      collisionGroup: PhysicsSystem.COLLISION_GROUP.ENEMY,
+      collisionMask: PhysicsSystem.COLLISION_GROUP.PLAYER | 
+                     PhysicsSystem.COLLISION_GROUP.STATIC |
+                     PhysicsSystem.COLLISION_GROUP.ENEMY
+    })
   }
   
-  setTarget(target: THREE.Object3D): void {
-    this.target = target
-  }
-  
-  setPatrolPoints(points: THREE.Vector3[]): void {
-    this.patrolPoints = points
-    this.currentPatrolIndex = 0
+  private generateRandomTarget(): void {
+    // Generate random point within field boundaries (with some margin from walls)
+    const margin = 3
+    this.targetPoint.set(
+      (Math.random() - 0.5) * (FIELD.WIDTH - margin * 2),
+      this.position.y, // Same height
+      (Math.random() - 0.5) * (FIELD.HEIGHT - margin * 2)
+    )
+    
+    console.log(`Enemy generating new target:`, this.targetPoint.toArray())
   }
   
   update(deltaTime: number): void {
     if (this.health <= 0) return
     
-    // Update behavior based on type
-    switch (this.enemyType) {
-      case EnemyType.PATROL:
-        this.updatePatrol(deltaTime)
-        break
-      case EnemyType.CHASER:
-        this.updateChaser(deltaTime)
-        break
-      case EnemyType.SHOOTER:
-        this.updateShooter(deltaTime)
-        break
-    }
+    const currentTime = Date.now() / 1000
     
-    // Check if can attack
-    if (this.target) {
-      const distance = this.position.distanceTo(this.target.position)
-      if (distance <= this.attackRange) {
-        this.tryAttack()
-      }
-    }
-  }
-  
-  private updatePatrol(deltaTime: number): void {
-    if (this.patrolPoints.length === 0) return
-    
-    // Check if should chase target
-    if (this.target) {
-      const distance = this.position.distanceTo(this.target.position)
-      if (distance <= this.detectionRange) {
-        this.moveTowards(this.target.position, deltaTime)
-        return
-      }
-    }
-    
-    // Continue patrol
-    const targetPoint = this.patrolPoints[this.currentPatrolIndex]
-    const distance = this.position.distanceTo(targetPoint)
-    
-    if (distance > 0.5) {
-      this.moveTowards(targetPoint, deltaTime)
-    } else {
-      // Wait at patrol point
-      this.waitTimer += deltaTime
-      if (this.waitTimer >= this.patrolWaitTime) {
-        this.waitTimer = 0
-        this.currentPatrolIndex = (this.currentPatrolIndex + 1) % this.patrolPoints.length
-      }
-    }
-  }
-  
-  private updateChaser(deltaTime: number): void {
-    if (!this.target) return
-    
-    const distance = this.position.distanceTo(this.target.position)
-    if (distance <= this.detectionRange && distance > this.attackRange) {
-      this.moveTowards(this.target.position, deltaTime)
-    }
-  }
-  
-  private updateShooter(deltaTime: number): void {
-    if (!this.target) return
-    
-    const distance = this.position.distanceTo(this.target.position)
-    if (distance <= this.detectionRange) {
-      // Face target
-      this.lookAt(this.target.position)
+    // Update movement every 0.2 seconds
+    if (currentTime - this.lastMoveUpdate > 0.2) {
+      this.lastMoveUpdate = currentTime
       
-      // Move closer if too far
-      if (distance > this.detectionRange * 0.7) {
-        this.moveTowards(this.target.position, deltaTime)
-      } else if (distance < this.attackRange * 2) {
-        // Back away if too close
-        const direction = this.position.clone().sub(this.target.position).normalize()
-        this.position.add(direction.multiplyScalar(this.speed * deltaTime))
+      // Check if we've reached our target point
+      const distance = this.position.distanceTo(this.targetPoint)
+      
+      if (distance <= this.reachedDistance) {
+        // Reached target - generate new one
+        this.generateRandomTarget()
+      }
+      
+      // Calculate direction to current target point
+      this.moveDirection.subVectors(this.targetPoint, this.position).normalize()
+      
+      // Face the target point
+      this.lookAt(this.targetPoint)
+    }
+    
+    // Apply movement
+    if (this.moveDirection.length() > 0) {
+      const physics = PhysicsSystem.getInstance()
+      const rigidBody = physics.getRigidBody(this)
+      if (rigidBody) {
+        const force = this.moveDirection.clone().multiplyScalar(50)
+        physics.applyForce(rigidBody, force)
+        
+        // Limit velocity
+        const velocity = rigidBody.body.velocity
+        const horizontalSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z)
+        if (horizontalSpeed > this.speed) {
+          const scale = this.speed / horizontalSpeed
+          velocity.x *= scale
+          velocity.z *= scale
+        }
       }
     }
   }
   
-  private moveTowards(target: THREE.Vector3, deltaTime: number): void {
-    const direction = target.clone().sub(this.position).normalize()
-    direction.y = 0 // Keep on ground
-    
-    this.position.add(direction.multiplyScalar(this.speed * deltaTime))
-    this.lookAt(new THREE.Vector3(target.x, this.position.y, target.z))
-  }
-  
-  private tryAttack(): void {
-    const now = Date.now() / 1000
-    if (now - this.lastAttackTime < this.attackCooldown) return
-    
-    this.lastAttackTime = now
-    
-    // Visual feedback
-    if (this.mesh.material instanceof THREE.MeshPhongMaterial) {
-      const material = this.mesh.material
-      material.emissive.setHex(0xffff00)
-      material.emissiveIntensity = 0.6
-      
-      setTimeout(() => {
-        material.emissive.setHex(this.originalColor)
-        material.emissiveIntensity = 0.2
-      }, 200)
-    }
-    
-    // Attack will be handled by game logic
-  }
   
   takeDamage(amount: number): void {
     this.health = Math.max(0, this.health - amount)
     
-    // Visual feedback
+    // Visual feedback - flash white
     if (this.mesh.material instanceof THREE.MeshPhongMaterial) {
       const material = this.mesh.material
-      material.emissive.setHex(0xffffff)
-      material.emissiveIntensity = 0.8
+      const originalColor = material.color.getHex()
+      material.color.setHex(0xffffff)
       
       setTimeout(() => {
-        material.emissive.setHex(this.originalColor)
-        material.emissiveIntensity = 0.2
+        material.color.setHex(originalColor)
       }, 100)
     }
-    
-    if (this.health <= 0) {
-      this.onDeath()
+  }
+  
+  dispose(): void {
+    // Remove physics body
+    const physics = PhysicsSystem.getInstance()
+    const rigidBody = physics.getRigidBody(this)
+    if (rigidBody) {
+      physics.removeRigidBody(rigidBody)
     }
-  }
-  
-  private onDeath(): void {
-    // Hide mesh
-    this.visible = false
-    // Game will handle removal
-  }
-  
-  getHealth(): number {
-    return this.health
+    
+    // Dispose geometry and material
+    if (this.mesh) {
+      this.mesh.geometry.dispose()
+      if (this.mesh.material instanceof THREE.Material) {
+        this.mesh.material.dispose()
+      }
+    }
   }
 }
