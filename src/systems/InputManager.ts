@@ -51,7 +51,6 @@ export class InputManager {
     if (!this.enabled) return
     
     const key = event.key
-    console.log('KEY DOWN DETECTED:', key) // Debug
     if (!this.keys.get(key)) {
       this.keys.set(key, true)
       this.keysJustPressed.add(key)
@@ -181,9 +180,6 @@ export class InputManager {
     const aDown = this.isKeyDown('a') || this.isKeyDown('A') || this.isKeyDown('ArrowLeft')
     const dDown = this.isKeyDown('d') || this.isKeyDown('D') || this.isKeyDown('ArrowRight')
     
-    if (wDown || sDown || aDown || dDown) {
-      console.log('KEYS DETECTED:', {w: wDown, s: sDown, a: aDown, d: dDown})
-    }
     
     if (wDown) {
       vector.y = 1

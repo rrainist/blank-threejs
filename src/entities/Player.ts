@@ -47,9 +47,6 @@ export class Player extends THREE.Group {
     // Ground is at y=0, box center needs to be at y = halfExtents.y = 1.5
     this.position.set(0, 1.5, 0) // Proper physics positioning for 3x3x3 box
     
-    console.log('PLAYER CREATED: Position =', this.position.toArray())
-    console.log('PLAYER CREATED: Mesh color =', this.mesh.material.color.getHex())
-    console.log('PLAYER CREATED: Geometry =', this.mesh.geometry)
     
     // Get systems
     this.input = InputManager.getInstance()
@@ -89,7 +86,6 @@ export class Player extends THREE.Group {
       // Check for ground collisions (normal pointing up)
       if (collision.normal.y > 0.5) {
         this.groundContactCount++
-        console.log('Ground contact detected! Count:', this.groundContactCount)
       }
       
       // Check for wall collisions
@@ -109,10 +105,6 @@ export class Player extends THREE.Group {
     const horizontal = movement.x
     const vertical = movement.y
     
-    // Debug input only when there's movement
-    if (Math.abs(horizontal) > 0.01 || Math.abs(vertical) > 0.01) {
-      console.log('PLAYER MOVING:', horizontal, vertical)
-    }
     
     // Check if grounded using both raycast and collision detection
     if (this.rigidBody) {
@@ -131,7 +123,7 @@ export class Player extends THREE.Group {
       // Force-based movement for proper physics behavior
       if (Math.abs(horizontal) > 0.01 || Math.abs(vertical) > 0.01) {
         // Calculate movement force
-        const forceMultiplier = 100 // Adjust this value for responsiveness
+        const forceMultiplier = PLAYER.FORCE_MULTIPLIER
         const force = new THREE.Vector3(
           horizontal * forceMultiplier,
           0,
@@ -173,15 +165,16 @@ export class Player extends THREE.Group {
   takeDamage(amount: number): void {
     this.health = Math.max(0, this.health - amount)
     
-    // Visual feedback
-    if (this.mesh.material instanceof THREE.MeshPhongMaterial) {
+    // Visual feedback - flash red for both BasicMaterial and PhongMaterial
+    if (this.mesh.material instanceof THREE.MeshBasicMaterial || 
+        this.mesh.material instanceof THREE.MeshPhongMaterial) {
       const material = this.mesh.material
       const originalColor = material.color.getHex()
       material.color.setHex(0xff0000)
       
       setTimeout(() => {
         material.color.setHex(originalColor)
-      }, 200)
+      }, PLAYER.DAMAGE_FLASH_DURATION)
     }
     
     // Emit damage event
@@ -201,7 +194,7 @@ export class Player extends THREE.Group {
     
     // Emit shoot event with origin at player's center height
     const shootOrigin = this.position.clone()
-    shootOrigin.y = 1 // Set to player's approximate center height
+    shootOrigin.y = this.position.y // Use actual player center
     
     eventBus.emit('player:shoot', {
       player: this,
@@ -209,7 +202,7 @@ export class Player extends THREE.Group {
       direction: direction.clone()
     })
     
-    // Visual feedback - quick flash
+    // Visual feedback - quick flash (only for PhongMaterial since BasicMaterial has no emissive)
     if (this.mesh.material instanceof THREE.MeshPhongMaterial) {
       const material = this.mesh.material
       material.emissive.setHex(0xffff00)
@@ -218,7 +211,16 @@ export class Player extends THREE.Group {
       setTimeout(() => {
         material.emissive.setHex(PLAYER.EMISSIVE_COLOR)
         material.emissiveIntensity = 0.1
-      }, 100)
+      }, PLAYER.SHOOT_FLASH_DURATION)
+    } else if (this.mesh.material instanceof THREE.MeshBasicMaterial) {
+      // For BasicMaterial, flash the main color briefly
+      const material = this.mesh.material
+      const originalColor = material.color.getHex()
+      material.color.setHex(0xffff00)
+      
+      setTimeout(() => {
+        material.color.setHex(originalColor)
+      }, PLAYER.SHOOT_FLASH_DURATION)
     }
   }
   

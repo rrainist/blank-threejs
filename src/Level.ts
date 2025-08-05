@@ -35,8 +35,6 @@ export function createLevel(scene: THREE.Scene, levelNumber: number): void {
   ground.name = 'Ground'
   scene.add(ground)
   
-  console.log('GROUND CREATED: Position =', ground.position.toArray())
-  console.log('GROUND CREATED: Size =', FIELD.WIDTH, 'x', FIELD.HEIGHT)
   
   // Add physics to ground
   physics.createRigidBody(ground, {
@@ -69,7 +67,6 @@ export function createLevel(scene: THREE.Scene, levelNumber: number): void {
     wall.name = name
     scene.add(wall)
     
-    console.log(`${name} CREATED: Position =`, wall.position.toArray(), 'Size =', size)
     
     // Add physics to wall
     physics.createRigidBody(wall, {

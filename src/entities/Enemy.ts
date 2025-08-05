@@ -11,7 +11,7 @@ export class Enemy extends THREE.Group {
   
   // Random movement
   private targetPoint = new THREE.Vector3()
-  private reachedDistance = 2
+  private reachedDistance = ENEMY.REACHED_DISTANCE
   
   // Visual
   mesh: THREE.Mesh
@@ -79,7 +79,6 @@ export class Enemy extends THREE.Group {
       (Math.random() - 0.5) * (FIELD.HEIGHT - margin * 2)
     )
     
-    console.log(`Enemy generating new target:`, this.targetPoint.toArray())
   }
   
   update(deltaTime: number): void {
@@ -87,8 +86,8 @@ export class Enemy extends THREE.Group {
     
     const currentTime = Date.now() / 1000
     
-    // Update movement every 0.2 seconds
-    if (currentTime - this.lastMoveUpdate > 0.2) {
+    // Update movement every interval
+    if (currentTime - this.lastMoveUpdate > ENEMY.MOVE_UPDATE_INTERVAL) {
       this.lastMoveUpdate = currentTime
       
       // Check if we've reached our target point
@@ -111,7 +110,7 @@ export class Enemy extends THREE.Group {
       const physics = PhysicsSystem.getInstance()
       const rigidBody = physics.getRigidBody(this)
       if (rigidBody) {
-        const force = this.moveDirection.clone().multiplyScalar(50)
+        const force = this.moveDirection.clone().multiplyScalar(ENEMY.FORCE_MULTIPLIER)
         physics.applyForce(rigidBody, force)
         
         // Limit velocity
@@ -138,7 +137,7 @@ export class Enemy extends THREE.Group {
       
       setTimeout(() => {
         material.color.setHex(originalColor)
-      }, 100)
+      }, ENEMY.DAMAGE_FLASH_DURATION)
     }
   }
   

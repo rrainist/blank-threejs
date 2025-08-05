@@ -7,11 +7,6 @@ export class CameraController {
   private camera: THREE.OrthographicCamera
   private target?: THREE.Object3D
   
-  // Fixed isometric camera settings
-  private readonly CAMERA_HEIGHT = 40
-  private readonly CAMERA_DISTANCE = 40
-  private readonly CAMERA_ANGLE = Math.PI / 4 // 45 degrees for true isometric
-  
   private constructor(camera: THREE.OrthographicCamera) {
     this.camera = camera
     
