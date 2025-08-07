@@ -56,12 +56,31 @@
 
   // Configure environment variables
   "remoteEnv": {
+    // Node.js configuration
     "NODE_ENV": "development",
+    "NODE_OPTIONS": "--max-old-space-size=4096",
+    // Claude Code configuration
     "CLAUDE_CODE_USE_VERTEX": "1",
     "CLOUD_ML_REGION": "us-east5",
-    "ANTHROPIC_VERTEX_PROJECT_ID": "sc-claude-code-prod"
+    "ANTHROPIC_VERTEX_PROJECT_ID": "sc-claude-code-prod",
+    // "ANTHROPIC_MODEL": "claude-3-7-sonnet@20250219",
+    "ANTHROPIC_MODEL": "claude-opus-4-1@20250805",
+    // Model-specific region overrides for improved performance
+    "VERTEX_REGION_CLAUDE_3_7_SONNET": "us-east5",
+    "VERTEX_REGION_CLAUDE_3_5_SONNET": "us-east5",
+    "VERTEX_REGION_CLAUDE_3_5_HAIKU": "us-central1",
+    "VERTEX_REGION_CLAUDE_OPUS_4_1": "us-east5",
+    // API request optimization
+    "ANTHROPIC_API_REQUEST_TIMEOUT": "60000",
+    "ANTHROPIC_ENABLE_CACHE": "true",
+    // Shell and locale configuration
+    "SHELL": "/usr/bin/fish",
+    "LANG": "en_US.UTF-8",
+    "LANGUAGE": "en_US:en",
+    "LC_ALL": "en_US.UTF-8",
+    // History file location
+    "HISTFILE": "/commandhistory/.fish_history"
   },
-
   // Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
   "remoteUser": "node"
 
