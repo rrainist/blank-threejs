@@ -3,20 +3,11 @@ FROM node:24-bookworm
 # Avoid warnings by switching to noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Set up environment
+# Set up basic environment (others defined in devcontainer.json)
 ENV HOME=/home/node
 ENV WORKSPACE=/workspace
-ENV LANG=en_US.UTF-8
-ENV LANGUAGE=en_US:en
-ENV LC_ALL=en_US.UTF-8
-ENV SHELL=/usr/bin/fish
 
-# Claude Code environment variables
-ENV CLAUDE_CODE_USE_VERTEX=1
-ENV CLOUD_ML_REGION=us-east5
-ENV ANTHROPIC_VERTEX_PROJECT_ID=sc-claude-code-prod
-
-# Install minimal dependencies
+# Install minimal dependencies and networking tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     fish \
@@ -26,7 +17,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     gnupg \
     lsb-release \
+    dnsutils \
+    iputils-ping \
+    net-tools \
     && rm -rf /var/lib/apt/lists/*
+
+# Optimize DNS resolution
+# RUN echo "options single-request" >> /etc/resolv.conf && \
+#     echo "options timeout:2" >> /etc/resolv.conf && \
+#     echo "options attempts:3" >> /etc/resolv.conf
 
 # Install Google Cloud SDK
 RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
@@ -34,28 +33,24 @@ RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.
     apt-get update && apt-get install -y google-cloud-sdk && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code CLI using npm
-RUN npm install -g @anthropic-ai/claude-code
+# Install global NPM packages
+RUN npm install -g @anthropic-ai/claude-code && \
+    npm install -g @playwright/test && \
+    npx playwright install-deps 
 
-# Fix npm cache permissions
-RUN mkdir -p /home/node/.npm && chown -R node:node /home/node/.npm
-RUN chown -R node:node $(npm -g config get prefix)
+# Fix npm cache and volume permissions
+RUN mkdir -p /home/node/.npm && \
+    chown -R node:node /home/node/.npm && \ 
+    chown -R node:node $(npm -g config get prefix) && \
+    mkdir -p /workspace/node_modules /workspace/.cache /home/node/.cache/anthropic /commandhistory && \
+    touch /commandhistory/.bash_history /commandhistory/.fish_history && \
+    chown -R node:node /workspace/node_modules /workspace/.cache /home/node/.cache /commandhistory
 
 # Set up Fish as default shell for the node user
 RUN chsh -s /usr/bin/fish node
 
-# Add Fish configuration
-RUN mkdir -p /home/node/.config/fish && \
-    echo 'function fish_greeting; echo "🎮 Welcome to Three.js Development Environment"; end' > /home/node/.config/fish/config.fish && \
-    echo 'set -gx NODE_ENV development' >> /home/node/.config/fish/config.fish && \
-    echo 'set -gx CLAUDE_CODE_USE_VERTEX 1' >> /home/node/.config/fish/config.fish && \
-    echo 'set -gx CLOUD_ML_REGION us-east5' >> /home/node/.config/fish/config.fish && \
-    echo 'set -gx ANTHROPIC_VERTEX_PROJECT_ID sc-claude-code-prod' >> /home/node/.config/fish/config.fish && \
-    chown -R node:node /home/node/.config
-
 # Switch to non-root user for subsequent commands
 USER node
-RUN claude config set --global env '{"CLAUDE_CODE_USE_VERTEX": "true", "ANTHROPIC_MODEL": "claude-3-7-sonnet@20250219"}'
 
 # Set up working directory
 WORKDIR /workspace
