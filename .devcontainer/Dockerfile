@@ -21,11 +21,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     fish \
     curl \
+    jq \
     apt-transport-https \
     ca-certificates \
     gnupg \
     lsb-release \
-    # locales \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Google Cloud SDK
@@ -34,16 +34,12 @@ RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.
     apt-get update && apt-get install -y google-cloud-sdk && \
     rm -rf /var/lib/apt/lists/*
 
-# Set the locale
-# RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
-#     dpkg-reconfigure --frontend=noninteractive locales && \
-#     update-locale LANG=en_US.UTF-8
-
 # Install Claude Code CLI using npm
 RUN npm install -g @anthropic-ai/claude-code
 
 # Fix npm cache permissions
 RUN mkdir -p /home/node/.npm && chown -R node:node /home/node/.npm
+RUN chown -R node:node $(npm -g config get prefix)
 
 # Set up Fish as default shell for the node user
 RUN chsh -s /usr/bin/fish node
@@ -59,15 +55,10 @@ RUN mkdir -p /home/node/.config/fish && \
 
 # Switch to non-root user for subsequent commands
 USER node
-
-# Set up a nice terminal prompt
-# RUN echo 'function fish_prompt; echo -n (set_color green)"➜ "(set_color blue)(prompt_pwd)(set_color normal)" $ "; end' >> /home/node/.config/fish/config.fish
+RUN claude config set --global env '{"CLAUDE_CODE_USE_VERTEX": "true", "ANTHROPIC_MODEL": "claude-3-7-sonnet@20250219"}'
 
 # Set up working directory
 WORKDIR /workspace
 
 # Switch back to interactive
 ENV DEBIAN_FRONTEND=dialog
-
-# Default command
-# CMD ["fish"]
