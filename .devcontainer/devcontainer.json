@@ -4,11 +4,15 @@
     "dockerfile": "Dockerfile",
     "context": ".."
   },
-
-  // Restrict container's filesystem access to only the workspace
-  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+  // Configure workspace and volumes for improved performance
+  "mounts": [
+    "source=${localWorkspaceFolderBasename}-node_modules,target=/workspace/node_modules,type=volume",
+    "source=${localWorkspaceFolderBasename}-cache,target=/workspace/.cache,type=volume",
+    "source=${localWorkspaceFolderBasename}-claude-cache,target=/home/node/.cache/anthropic,type=volume",
+    "source=${localWorkspaceFolderBasename}-shellhistory,target=/commandhistory,type=volume",
+    "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated"
+  ],
   "workspaceFolder": "/workspace",
-
   // Set *default* container specific settings.json values on container create.
   "settings": {
     "editor.formatOnSave": true,
@@ -65,7 +69,7 @@
   // "runArgs": [ "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined" ],
 
   // Lifecycle scripts to customize container setup
-  // "initializeCommand": {
-  //   "Prepare workspace": "mkdir -p ${localWorkspaceFolder}/.vscode-server/extensions"
-  // }
+  "initializeCommand": {
+    "Prepare workspace": "docker volume create ${localWorkspaceFolderBasename}-node_modules && docker volume create ${localWorkspaceFolderBasename}-cache && docker volume create ${localWorkspaceFolderBasename}-claude-cache && docker volume create ${localWorkspaceFolderBasename}-shellhistory"
+  }
 }
