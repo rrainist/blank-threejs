@@ -1,5 +1,5 @@
 {
-  "name": "Three.js Development",
+  "name": "Claude Code Training",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."
@@ -27,16 +27,17 @@
       }
     }
   },
-
   // Add the IDs of VS Code extensions you want installed
   "extensions": [
     "ms-azuretools.vscode-docker",
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode"
   ],
-
   // Forward ports for development server and other services
-  "forwardPorts": [3000, 5173],
+  "forwardPorts": [
+    3000,
+    5173
+  ],
   "portsAttributes": {
     "3000": {
       "label": "Vite Dev Server",
@@ -47,14 +48,11 @@
       "onAutoForward": "notify"
     }
   },
-
   // Use 'postCreateCommand' to run commands after the container is created
-  "postCreateCommand": "npm install",
-  
+  "postCreateCommand": "npm install && npx playwright install",
   // Run gcloud auth and set Claude configuration when container starts
   "postStartCommand": "gcloud auth application-default login",
-
-  // Configure environment variables
+  // Configure environment variables (centralized here to avoid duplication)
   "remoteEnv": {
     // Node.js configuration
     "NODE_ENV": "development",
@@ -82,11 +80,15 @@
     "HISTFILE": "/commandhistory/.fish_history"
   },
   // Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
-  "remoteUser": "node"
-
-  // Uncomment when using a ptrace-based debugger like C++, Go, and Rust
-  // "runArgs": [ "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined" ],
-
+  "remoteUser": "node",
+  // Performance optimization for Claude Code
+  "runArgs": [
+    "--memory=4g",
+    "--memory-swap=4g",
+    // "--dns=8.8.8.8",
+    // "--dns=8.8.4.4",
+    "--network-alias=claude-dev"
+  ],
   // Lifecycle scripts to customize container setup
   "initializeCommand": {
     "Prepare workspace": "docker volume create ${localWorkspaceFolderBasename}-node_modules && docker volume create ${localWorkspaceFolderBasename}-cache && docker volume create ${localWorkspaceFolderBasename}-claude-cache && docker volume create ${localWorkspaceFolderBasename}-shellhistory"
