@@ -5,6 +5,7 @@ export class Collectible extends THREE.Mesh {
   baseY: number
   time: number = 0
   active: boolean = false
+  color: number
   
   // Animation parameters
   rotationSpeed: number = 2
@@ -26,6 +27,7 @@ export class Collectible extends THREE.Mesh {
     
     // Set properties
     this.value = value
+    this.color = color
     this.baseY = 1
     this.castShadow = true
     this.receiveShadow = true

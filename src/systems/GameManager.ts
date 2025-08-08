@@ -1,5 +1,4 @@
-import { Storage } from './Storage'
-import { EventBus } from '../utils/EventBus'
+import { eventBus } from '../utils/EventBus'
 import { logger } from '../utils/Logger'
 
 export enum GameState {
@@ -11,37 +10,23 @@ export enum GameState {
   VICTORY = 'victory'
 }
 
-export interface GameStateData {
-  score: number
-  level: number
-  lives: number
-  [key: string]: unknown
-}
-
 type StateChangeCallback = (from: GameState, to: GameState) => void
-type UpdateCallback = (deltaTime: number) => void
 
 export class GameManager {
   private static instance: GameManager
   private currentState: GameState = GameState.LOADING
   private previousState: GameState = GameState.LOADING
-  private stateChangeCallbacks: Map<GameState, StateChangeCallback[]> = new Map()
-  private updateCallbacks: Map<GameState, UpdateCallback[]> = new Map()
-  private gameData: GameStateData = {
-    score: 0,
-    level: 1,
-    lives: 3
-  }
+  private stateChangeCallbacks: StateChangeCallback[] = []
+  
+  // Game data
+  private score = 0
+  private level = 1
+  private lives = 3
   private health = 100
   private maxHealth = 100
-  private isPaused = false
-  private storage: Storage
-  private eventBus: EventBus
 
   private constructor() {
-    this.storage = Storage.getInstance()
-    this.eventBus = EventBus.getInstance()
-    this.initializeStateCallbacks()
+    logger.info('GameManager initialized')
   }
 
   static getInstance(): GameManager {
@@ -49,14 +34,6 @@ export class GameManager {
       GameManager.instance = new GameManager()
     }
     return GameManager.instance
-  }
-
-  private initializeStateCallbacks() {
-    // Initialize empty callback arrays for each state
-    Object.values(GameState).forEach(state => {
-      this.stateChangeCallbacks.set(state, [])
-      this.updateCallbacks.set(state, [])
-    })
   }
 
   /**
@@ -72,27 +49,21 @@ export class GameManager {
     logger.info(`Game state changed: ${oldState} -> ${newState}`)
 
     // Emit state change event
-    this.eventBus.emit('game:state:changed', { 
-      oldState, 
-      newState 
+    eventBus.emit('game:state:changed', { 
+      from: oldState, 
+      to: newState 
     })
 
-    // Call exit callbacks for old state
-    this.triggerStateCallbacks(oldState, newState)
+    // Call state change callbacks
+    this.stateChangeCallbacks.forEach(callback => callback(oldState, newState))
 
     // Handle state-specific logic
     switch (newState) {
-      case GameState.PLAYING:
-        this.isPaused = false
-        break
-      case GameState.PAUSED:
-        this.isPaused = true
-        break
       case GameState.GAME_OVER:
-        this.handleGameOver()
+        logger.info('Game Over! Final score:', this.score)
         break
       case GameState.VICTORY:
-        this.handleVictory()
+        logger.info('Victory! Final score:', this.score)
         break
     }
   }
@@ -132,49 +103,43 @@ export class GameManager {
   /**
    * Register a callback for state changes
    */
-  onStateChange(state: GameState, callback: StateChangeCallback): void {
-    const callbacks = this.stateChangeCallbacks.get(state) || []
-    callbacks.push(callback)
-    this.stateChangeCallbacks.set(state, callbacks)
-  }
-
-  /**
-   * Register a callback for state updates
-   */
-  onStateUpdate(state: GameState, callback: UpdateCallback): void {
-    const callbacks = this.updateCallbacks.get(state) || []
-    callbacks.push(callback)
-    this.updateCallbacks.set(state, callbacks)
+  onStateChange(callback: StateChangeCallback): () => void {
+    this.stateChangeCallbacks.push(callback)
+    // Return unsubscribe function
+    return () => {
+      const index = this.stateChangeCallbacks.indexOf(callback)
+      if (index > -1) {
+        this.stateChangeCallbacks.splice(index, 1)
+      }
+    }
   }
 
   /**
    * Update the game manager (called each frame)
    */
-  update(deltaTime: number): void {
-    if (this.isPaused) return
-
-    // Call update callbacks for current state
-    const callbacks = this.updateCallbacks.get(this.currentState) || []
-    callbacks.forEach(callback => callback(deltaTime))
+  update(_deltaTime: number): void {
+    // Currently no per-frame updates needed
   }
 
   /**
    * Game data management
    */
   getScore(): number {
-    return this.gameData.score
+    return this.score
   }
 
   addScore(points: number): void {
-    this.gameData.score += points
+    this.score += points
+    eventBus.emit('score:changed', { score: this.score })
   }
 
   setScore(score: number): void {
-    this.gameData.score = score
+    this.score = score
+    eventBus.emit('score:changed', { score: this.score })
   }
 
   getLevel(): number {
-    return this.gameData.level
+    return this.level
   }
 
   getHealth(): number {
@@ -187,116 +152,49 @@ export class GameManager {
 
   setHealth(health: number): void {
     this.health = Math.max(0, Math.min(health, this.maxHealth))
+    eventBus.emit('health:changed', { health: this.health, maxHealth: this.maxHealth })
   }
 
   setLevel(level: number): void {
-    this.gameData.level = level
+    this.level = level
   }
 
   nextLevel(): void {
-    this.gameData.level++
+    this.level++
+    eventBus.emit('level:changed', { level: this.level })
   }
 
   getLives(): number {
-    return this.gameData.lives
+    return this.lives
   }
 
   setLives(lives: number): void {
-    this.gameData.lives = lives
+    this.lives = lives
+    eventBus.emit('lives:changed', { lives: this.lives })
   }
 
   loseLife(): void {
-    this.gameData.lives--
-    if (this.gameData.lives <= 0) {
+    this.lives--
+    if (this.lives <= 0) {
       this.changeState(GameState.GAME_OVER)
     }
-  }
-
-  /**
-   * Get/set custom game data
-   */
-  getData(key: string): unknown {
-    return this.gameData[key]
-  }
-
-  setData(key: string, value: unknown): void {
-    this.gameData[key] = value
-  }
-
-  /**
-   * Get all game data
-   */
-  getAllData(): GameStateData {
-    return { ...this.gameData }
   }
 
   /**
    * Reset game data to defaults
    */
   resetGameData(): void {
-    this.gameData = {
-      score: 0,
-      level: 1,
-      lives: 3
-    }
-  }
-
-  /**
-   * Save/Load game state
-   */
-  saveGame(slot = 0): boolean {
-    const saveData = {
-      state: this.currentState,
-      gameData: this.gameData,
-      timestamp: Date.now()
-    }
-    return this.storage.save(`game_save_${slot}`, saveData)
-  }
-
-  loadGame(slot = 0): boolean {
-    const saveData = this.storage.load(`game_save_${slot}`)
-    if (!saveData) return false
-
-    try {
-      this.currentState = saveData.state as GameState
-      this.gameData = saveData.gameData as GameStateData
-      return true
-    } catch (error) {
-      logger.error('Failed to load game:', error)
-      return false
-    }
-  }
-
-  /**
-   * Check if save game exists
-   */
-  hasSaveGame(slot = 0): boolean {
-    return this.storage.exists(`game_save_${slot}`)
-  }
-
-  /**
-   * Private helper methods
-   */
-  private triggerStateCallbacks(from: GameState, to: GameState): void {
-    const callbacks = this.stateChangeCallbacks.get(to) || []
-    callbacks.forEach(callback => callback(from, to))
-  }
-
-  private handleGameOver(): void {
-    logger.info('Game Over! Final score:', this.gameData.score)
-    // You can add more game over logic here
-  }
-
-  private handleVictory(): void {
-    logger.info('Victory! Final score:', this.gameData.score)
-    // You can add more victory logic here
+    this.score = 0
+    this.level = 1
+    this.lives = 3
+    this.health = this.maxHealth
   }
 
   /**
    * Clean up resources
    */
   dispose(): void {
-    this.stateChangeCallbacks.clear()
+    this.stateChangeCallbacks = []
     logger.info('GameManager disposed')
   }
 }
