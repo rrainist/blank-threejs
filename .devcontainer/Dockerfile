@@ -17,16 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     gnupg \
     lsb-release \
-    dnsutils \
-    iputils-ping \
-    net-tools \
     sudo \
     && rm -rf /var/lib/apt/lists/*
-
-# Optimize DNS resolution
-# RUN echo "options single-request" >> /etc/resolv.conf && \
-#     echo "options timeout:2" >> /etc/resolv.conf && \
-#     echo "options attempts:3" >> /etc/resolv.conf
 
 # Install Google Cloud SDK
 RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
@@ -42,7 +34,7 @@ RUN mkdir -p /workspace/node_modules /workspace/.cache /home/pwuser/.cache/anthr
     chown -R 1000:1000 "/home/pwuser/.npm" && \
     chown -R pwuser:pwuser /home/pwuser/.cache && \
     chmod -R 777 /home/pwuser/.cache && \
-    # Add pwuser to sudo group and configure passwordless sudo
+    # Add pwuser to sudo group and configure passwordless sudo - this is for VNC setup
     usermod -aG sudo pwuser && \
     echo "pwuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/pwuser && \
     chmod 0440 /etc/sudoers.d/pwuser
