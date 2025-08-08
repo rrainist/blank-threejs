@@ -41,13 +41,7 @@
     "esbenp.prettier-vscode"
   ],
   // Forward ports for development server and other services
-  "forwardPorts": [
-    3000,
-    5173,
-    9222,
-    6080,
-    5901
-  ],
+  "forwardPorts": [3000, 5173, 9222, 6080, 5901],
   "portsAttributes": {
     "3000": {
       "label": "Vite Dev Server",
@@ -72,8 +66,9 @@
   },
   // Use 'postCreateCommand' to run commands after the container is created
   "postCreateCommand": "npm install",
-  // Run gcloud auth and set Claude configuration when container starts
-  "postStartCommand": "gcloud auth application-default login",
+  // Skip automatic Google auth to prevent browser issues
+  // Users can manually run: gcloud auth application-default login
+  "postStartCommand": "echo 'Container started. If needed, run: gcloud auth application-default login'",
   // Configure environment variables (centralized here to avoid duplication)
   "remoteEnv": {
     // Node.js configuration
@@ -99,7 +94,7 @@
     "LANGUAGE": "en_US:en",
     "LC_ALL": "en_US.UTF-8",
     // Playwright configuration
-    "PLAYWRIGHT_BROWSERS_PATH": "0",
+    "PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright",
     "DISPLAY": ":1.0"
     // History file location
     // "HISTFILE": "/commandhistory/.fish_history"
@@ -108,11 +103,9 @@
   "remoteUser": "pwuser",
   // Performance optimization for Claude Code
   "runArgs": [
-    // "--memory=4g",
-    // "--memory-swap=4g"
-    // "--dns=8.8.8.8",
-    // "--dns=8.8.4.4",
-    // "--network-alias=claude-dev"
+    "--memory=4g",
+    "--memory-swap=4g",
+    "--shm-size=2g" // Add shared memory for Chrome
   ]
   // Lifecycle scripts to customize container setup
   // "initializeCommand": {

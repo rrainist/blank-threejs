@@ -38,8 +38,10 @@ RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.
 RUN npm install -g @anthropic-ai/claude-code
 
 # Fix npm cache and volume permissions
-RUN mkdir -p /workspace/node_modules /workspace/.cache /home/pwuser/.cache/anthropic && \
+RUN mkdir -p /workspace/node_modules /workspace/.cache /home/pwuser/.cache/anthropic /home/pwuser/.cache/ms-playwright && \
     chown -R 1000:1000 "/home/pwuser/.npm" && \
+    chown -R pwuser:pwuser /home/pwuser/.cache && \
+    chmod -R 777 /home/pwuser/.cache && \
     # Add pwuser to sudo group and configure passwordless sudo
     usermod -aG sudo pwuser && \
     echo "pwuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/pwuser && \
