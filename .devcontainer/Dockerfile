@@ -1,10 +1,10 @@
-FROM node:24-bookworm
+FROM mcr.microsoft.com/playwright:v1.54.0-jammy
 
 # Avoid warnings by switching to noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Set up basic environment (others defined in devcontainer.json)
-ENV HOME=/home/node
+ENV HOME=/home/pwuser
 ENV WORKSPACE=/workspace
 
 # Install minimal dependencies and networking tools
@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dnsutils \
     iputils-ping \
     net-tools \
+    sudo \
     && rm -rf /var/lib/apt/lists/*
 
 # Optimize DNS resolution
@@ -34,23 +35,18 @@ RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.
     rm -rf /var/lib/apt/lists/*
 
 # Install global NPM packages
-RUN npm install -g @anthropic-ai/claude-code && \
-    npm install -g @playwright/test && \
-    npx playwright install-deps 
+RUN npm install -g @anthropic-ai/claude-code
 
 # Fix npm cache and volume permissions
-RUN mkdir -p /home/node/.npm && \
-    chown -R node:node /home/node/.npm && \ 
-    chown -R node:node $(npm -g config get prefix) && \
-    mkdir -p /workspace/node_modules /workspace/.cache /home/node/.cache/anthropic /commandhistory && \
-    touch /commandhistory/.bash_history /commandhistory/.fish_history && \
-    chown -R node:node /workspace/node_modules /workspace/.cache /home/node/.cache /commandhistory
-
-# Set up Fish as default shell for the node user
-RUN chsh -s /usr/bin/fish node
+RUN mkdir -p /workspace/node_modules /workspace/.cache /home/pwuser/.cache/anthropic && \
+    chown -R 1000:1000 "/home/pwuser/.npm" && \
+    # Add pwuser to sudo group and configure passwordless sudo
+    usermod -aG sudo pwuser && \
+    echo "pwuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/pwuser && \
+    chmod 0440 /etc/sudoers.d/pwuser
 
 # Switch to non-root user for subsequent commands
-USER node
+USER pwuser
 
 # Set up working directory
 WORKDIR /workspace

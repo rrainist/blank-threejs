@@ -4,12 +4,19 @@
     "dockerfile": "Dockerfile",
     "context": ".."
   },
+  "features": {
+    "ghcr.io/devcontainers/features/desktop-lite:1": {
+      "password": "vscode",
+      "webPort": 6080,
+      "vncPort": 5901
+    }
+  },
   // Configure workspace and volumes for improved performance
   "mounts": [
-    "source=${localWorkspaceFolderBasename}-node_modules,target=/workspace/node_modules,type=volume",
-    "source=${localWorkspaceFolderBasename}-cache,target=/workspace/.cache,type=volume",
-    "source=${localWorkspaceFolderBasename}-claude-cache,target=/home/node/.cache/anthropic,type=volume",
-    "source=${localWorkspaceFolderBasename}-shellhistory,target=/commandhistory,type=volume",
+    // "source=${localWorkspaceFolderBasename}-node_modules,target=/workspace/node_modules,type=volume",
+    // "source=${localWorkspaceFolderBasename}-cache,target=/workspace/.cache,type=volume",
+    // "source=${localWorkspaceFolderBasename}-claude-cache,target=/home/node/.cache/anthropic,type=volume",
+    // "source=${localWorkspaceFolderBasename}-shellhistory,target=/commandhistory,type=volume",
     "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated"
   ],
   "workspaceFolder": "/workspace",
@@ -36,7 +43,10 @@
   // Forward ports for development server and other services
   "forwardPorts": [
     3000,
-    5173
+    5173,
+    9222,
+    6080,
+    5901
   ],
   "portsAttributes": {
     "3000": {
@@ -46,10 +56,22 @@
     "5173": {
       "label": "Alternative Vite Port",
       "onAutoForward": "notify"
+    },
+    "9222": {
+      "label": "Chrome Remote Debugging",
+      "onAutoForward": "notify"
+    },
+    "6080": {
+      "label": "Desktop (noVNC Web Client)",
+      "onAutoForward": "notify"
+    },
+    "5901": {
+      "label": "Desktop (VNC)",
+      "onAutoForward": "notify"
     }
   },
   // Use 'postCreateCommand' to run commands after the container is created
-  "postCreateCommand": "npm install && npx playwright install",
+  "postCreateCommand": "npm install",
   // Run gcloud auth and set Claude configuration when container starts
   "postStartCommand": "gcloud auth application-default login",
   // Configure environment variables (centralized here to avoid duplication)
@@ -76,21 +98,24 @@
     "LANG": "en_US.UTF-8",
     "LANGUAGE": "en_US:en",
     "LC_ALL": "en_US.UTF-8",
+    // Playwright configuration
+    "PLAYWRIGHT_BROWSERS_PATH": "0",
+    "DISPLAY": ":1.0"
     // History file location
-    "HISTFILE": "/commandhistory/.fish_history"
+    // "HISTFILE": "/commandhistory/.fish_history"
   },
   // Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
-  "remoteUser": "node",
+  "remoteUser": "pwuser",
   // Performance optimization for Claude Code
   "runArgs": [
-    "--memory=4g",
-    "--memory-swap=4g",
+    // "--memory=4g",
+    // "--memory-swap=4g"
     // "--dns=8.8.8.8",
     // "--dns=8.8.4.4",
-    "--network-alias=claude-dev"
-  ],
+    // "--network-alias=claude-dev"
+  ]
   // Lifecycle scripts to customize container setup
-  "initializeCommand": {
-    "Prepare workspace": "docker volume create ${localWorkspaceFolderBasename}-node_modules && docker volume create ${localWorkspaceFolderBasename}-cache && docker volume create ${localWorkspaceFolderBasename}-claude-cache && docker volume create ${localWorkspaceFolderBasename}-shellhistory"
-  }
+  // "initializeCommand": {
+  //   "Prepare workspace": "docker volume create ${localWorkspaceFolderBasename}-node_modules && docker volume create ${localWorkspaceFolderBasename}-cache && docker volume create ${localWorkspaceFolderBasename}-claude-cache && docker volume create ${localWorkspaceFolderBasename}-shellhistory"
+  // }
 }

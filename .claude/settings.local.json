@@ -5,8 +5,24 @@
       "mcp__playwright__browser_take_screenshot",
       "mcp__playwright__browser_click",
       "Bash(mkdir:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(grep:*)",
+      "Bash(claude doctor)",
+      "WebFetch(domain:docs.docker.com)",
+      "WebFetch(domain:code.visualstudio.com)",
+      "WebFetch(domain:github.com)",
+      "mcp__playwright__browser_navigate",
+      "Bash(curl:*)",
+      "WebFetch(domain:kagi.com)",
+      "WebFetch(domain:mcr.microsoft.com)",
+      "WebFetch(domain:playwright.dev)"
     ],
     "deny": []
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "playwright"
+  ]
 }
