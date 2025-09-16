@@ -6,7 +6,7 @@ let mouseY = 0
 let _targetRotationX = 0
 let _targetRotationY = 0
 
-export function setupControls(camera: THREE.PerspectiveCamera, canvas: HTMLCanvasElement): void {
+export function setupControls(_camera: THREE.PerspectiveCamera, canvas: HTMLCanvasElement): void {
   canvas.addEventListener('mousedown', onMouseDown)
   canvas.addEventListener('mousemove', onMouseMove)
   canvas.addEventListener('mouseup', onMouseUp)

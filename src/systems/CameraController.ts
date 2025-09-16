@@ -3,10 +3,10 @@ import { logger } from '../utils/Logger'
 
 export class CameraController {
   private static instance: CameraController
-  
+
   private camera: THREE.OrthographicCamera
-  private target?: THREE.Object3D
-  
+  // private target?: THREE.Object3D // Unused in fixed camera, but kept for future extension
+
   private constructor(camera: THREE.OrthographicCamera) {
     this.camera = camera
     
@@ -42,8 +42,9 @@ export class CameraController {
     logger.info(`SIMPLE CAMERA: positioned at [${x}, ${y}, ${z}] looking at [0, 0, 0]`)
   }
   
-  setTarget(target: THREE.Object3D | null): void {
-    this.target = target || undefined
+  setTarget(_target: THREE.Object3D | null): void {
+    // this.target = target || undefined
+    // Fixed camera doesn't follow targets, but kept for API compatibility
   }
   
   getCamera(): THREE.Camera {

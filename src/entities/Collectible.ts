@@ -13,7 +13,7 @@ export class Collectible extends THREE.Mesh {
   floatSpeed: number = COLLECTIBLE.FLOAT_SPEED
   floatHeight: number = COLLECTIBLE.FLOAT_HEIGHT
 
-  constructor(value = COLLECTIBLE.DEFAULT_VALUE, color = COLLECTIBLE.DEFAULT_COLOR) {
+  constructor(value: number = COLLECTIBLE.DEFAULT_VALUE, color: number = COLLECTIBLE.DEFAULT_COLOR) {
     // Create geometry and material
     const geometry = new THREE.OctahedronGeometry(0.3, 0)
     const material = new THREE.MeshPhongMaterial({ 

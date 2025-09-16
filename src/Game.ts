@@ -20,7 +20,7 @@ import { createLevel } from './Level'
 export class Game {
   private scene: THREE.Scene
   private camera: THREE.OrthographicCamera
-  private renderer: THREE.WebGLRenderer
+  // private readonly renderer: THREE.WebGLRenderer
   
   // Systems
   private gameManager: GameManager
@@ -72,10 +72,10 @@ export class Game {
     }
   }
   
-  constructor(scene: THREE.Scene, camera: THREE.OrthographicCamera, renderer: THREE.WebGLRenderer) {
+  constructor(scene: THREE.Scene, camera: THREE.OrthographicCamera, _renderer: THREE.WebGLRenderer) {
     this.scene = scene
     this.camera = camera
-    this.renderer = renderer
+    // this.renderer = renderer
     
     // Initialize systems
     this.gameManager = GameManager.getInstance()
@@ -139,7 +139,7 @@ export class Game {
     // Create common textures
     this.assetLoader.createCommonTextures()
 
-    // Load sounds
+    // Load sounds with fallback - don't fail if sounds are missing
     const soundsToLoad = [
       { key: 'collect', url: 'assets/sounds/General Sounds/Coins/sfx_coin_single1.wav' },
       { key: 'damage', url: 'assets/sounds/General Sounds/Simple Damage Sounds/sfx_damage_hit5.wav' },
@@ -149,13 +149,18 @@ export class Game {
       { key: 'pause', url: 'assets/sounds/General Sounds/Buttons/sfx_sounds_button3.wav' }
     ]
 
-    this.audioManager.registerSounds(soundsToLoad)
-    await this.audioManager.preloadSounds(soundsToLoad.map(({ key }) => key))
+    try {
+      this.audioManager.registerSounds(soundsToLoad)
+      await this.audioManager.preloadSounds(soundsToLoad.map(({ key }) => key))
+    } catch (error) {
+      logger.warn('Failed to load some sounds, continuing without audio:', error)
+      // Game will continue without sounds
+    }
   }
   
   private setupEventListeners(): void {
     // Game events
-    this.eventUnsubscribers.push(eventBus.on(GameEvents.ITEM_COLLECT, (event: any) => {
+    this.eventUnsubscribers.push(eventBus.on(GameEvents.ITEM_COLLECT, (event) => {
       this.gameManager.addScore(event.value)
       this.audioManager.play2D('collect', { volume: 0.5 })
     }))
@@ -175,7 +180,7 @@ export class Game {
       this.audioManager.play2D('jump', { volume: 0.3 })
     }))
 
-    this.eventUnsubscribers.push(eventBus.on('player:shoot', (event: any) => {
+    this.eventUnsubscribers.push(eventBus.on('player:shoot', (event) => {
       const bullet = this.bulletPool.get()
       if (bullet) {
         bullet.fire(event.origin, event.direction)
@@ -184,7 +189,7 @@ export class Game {
       }
     }))
 
-    this.eventUnsubscribers.push(eventBus.on(GameEvents.ENEMY_DEATH, (event: any) => {
+    this.eventUnsubscribers.push(eventBus.on(GameEvents.ENEMY_DEATH, (event) => {
       this.gameManager.addScore(100)
       this.audioManager.play2D('enemyDeath', { volume: 0.4 })
       

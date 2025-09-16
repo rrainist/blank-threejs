@@ -1,11 +1,12 @@
 import * as THREE from 'three'
 import { ENEMY, FIELD } from '../constants/GameConstants'
 import { PhysicsSystem, CollisionShape } from '../systems/PhysicsSystem'
-import { eventBus } from '../utils/EventBus'
+// import { eventBus } from '../utils/EventBus'
 
 export class Enemy extends THREE.Group {
   // Properties
   health: number
+  maxHealth: number
   speed: number
   attackDamage: number
   
@@ -25,6 +26,7 @@ export class Enemy extends THREE.Group {
     
     // Initialize properties from constants
     this.health = ENEMY.HEALTH
+    this.maxHealth = ENEMY.HEALTH
     this.speed = ENEMY.SPEED
     this.attackDamage = ENEMY.ATTACK_DAMAGE
     
@@ -81,7 +83,7 @@ export class Enemy extends THREE.Group {
     
   }
   
-  update(deltaTime: number): void {
+  update(_deltaTime: number): void {
     if (this.health <= 0) return
     
     const currentTime = Date.now() / 1000

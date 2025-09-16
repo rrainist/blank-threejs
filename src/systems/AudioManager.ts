@@ -80,7 +80,7 @@ export class AudioManager {
   /**
    * Alias for play2D - for compatibility with existing code
    */
-  play3D(soundKey: string, position: THREE.Vector3, options: SoundOptions = {}): HTMLAudioElement | null {
+  play3D(soundKey: string, _position: THREE.Vector3, options: SoundOptions = {}): HTMLAudioElement | null {
     // Just play as 2D sound - ignore position since we don't need 3D audio
     return this.play2D(soundKey, options)
   }
@@ -213,7 +213,11 @@ export class AudioManager {
   }
 
   async preloadSounds(keys: string[]): Promise<void> {
-    await Promise.all(keys.map(key => this.preloadSound(key)))
+    await Promise.all(keys.map(key => this.preloadSound(key).catch(error => {
+      logger.warn(`Failed to preload sound ${key}:`, error)
+      // Don't fail the whole preload if one sound fails
+      return null
+    })))
   }
 
   /**

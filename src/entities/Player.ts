@@ -34,8 +34,10 @@ export class Player extends THREE.Group {
     
     // Create visual representation - HUGE and very visible
     const geometry = new THREE.BoxGeometry(3, 3, 3) // Simple big box instead of capsule
-    const material = new THREE.MeshBasicMaterial({ 
-      color: 0x00ff00, // Bright green
+    const material = new THREE.MeshPhongMaterial({
+      color: PLAYER.COLOR || 0x00ff00, // Bright green
+      emissive: PLAYER.EMISSIVE_COLOR || 0x002200,
+      emissiveIntensity: 0.1,
       transparent: false
     })
     this.mesh = new THREE.Mesh(geometry, material)
@@ -99,7 +101,7 @@ export class Player extends THREE.Group {
     })
   }
   
-  update(deltaTime: number): void {
+  update(_deltaTime: number): void {
     // Get input
     const movement = this.input.getMovementVector()
     const horizontal = movement.x
@@ -164,25 +166,24 @@ export class Player extends THREE.Group {
   
   takeDamage(amount: number): void {
     this.health = Math.max(0, this.health - amount)
-    
-    // Visual feedback - flash red for both BasicMaterial and PhongMaterial
-    if (this.mesh.material instanceof THREE.MeshBasicMaterial || 
-        this.mesh.material instanceof THREE.MeshPhongMaterial) {
+
+    // Visual feedback - flash red
+    if (this.mesh.material instanceof THREE.MeshPhongMaterial) {
       const material = this.mesh.material
       const originalColor = material.color.getHex()
       material.color.setHex(0xff0000)
-      
+
       setTimeout(() => {
         material.color.setHex(originalColor)
       }, PLAYER.DAMAGE_FLASH_DURATION)
     }
-    
+
     // Emit damage event
-    eventBus.emit(GameEvents.PLAYER_DAMAGE)
-    
+    eventBus.emit(GameEvents.PLAYER_DAMAGE, { player: this, amount })
+
     // Check death
     if (this.health <= 0) {
-      eventBus.emit(GameEvents.PLAYER_DEATH)
+      eventBus.emit(GameEvents.PLAYER_DEATH, { player: this })
     }
   }
   
@@ -202,24 +203,15 @@ export class Player extends THREE.Group {
       direction: direction.clone()
     })
     
-    // Visual feedback - quick flash (only for PhongMaterial since BasicMaterial has no emissive)
+    // Visual feedback - quick flash
     if (this.mesh.material instanceof THREE.MeshPhongMaterial) {
       const material = this.mesh.material
       material.emissive.setHex(0xffff00)
       material.emissiveIntensity = 0.8
-      
+
       setTimeout(() => {
-        material.emissive.setHex(PLAYER.EMISSIVE_COLOR)
+        material.emissive.setHex(PLAYER.EMISSIVE_COLOR || 0x002200)
         material.emissiveIntensity = 0.1
-      }, PLAYER.SHOOT_FLASH_DURATION)
-    } else if (this.mesh.material instanceof THREE.MeshBasicMaterial) {
-      // For BasicMaterial, flash the main color briefly
-      const material = this.mesh.material
-      const originalColor = material.color.getHex()
-      material.color.setHex(0xffff00)
-      
-      setTimeout(() => {
-        material.color.setHex(originalColor)
       }, PLAYER.SHOOT_FLASH_DURATION)
     }
   }

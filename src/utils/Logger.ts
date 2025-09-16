@@ -10,7 +10,7 @@ export class Logger {
   private static instance: Logger
   private logLevel: LogLevel = LogLevel.INFO
   private enableTimestamp = true
-  private enableColors = true
+  // private enableColors = true
 
   private constructor() {
     // Check if we're in development mode

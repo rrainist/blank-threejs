@@ -1,5 +1,5 @@
 import { EventBus } from '../utils/EventBus'
-import { InputManager } from './InputManager'
+// import { InputManager } from './InputManager'
 import { GameManager, GameState } from './GameManager'
 import { logger } from '../utils/Logger'
 
@@ -35,7 +35,7 @@ export class UIManager {
   private elements: Map<string, UIElement> = new Map()
   
   private eventBus: EventBus
-  private inputManager: InputManager
+  // private inputManager: InputManager
   private gameManager: GameManager
   
   private updateCallbacks: Set<(deltaTime: number) => void> = new Set()
@@ -46,7 +46,7 @@ export class UIManager {
     this.debugMode = config.debugMode || false
     
     this.eventBus = EventBus.getInstance()
-    this.inputManager = InputManager.getInstance()
+    // this.inputManager = InputManager.getInstance()
     this.gameManager = GameManager.getInstance()
     
     if (config.defaultStyles !== false) {
