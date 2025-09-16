@@ -1,8 +1,8 @@
 import * as THREE from 'three'
-import { ObjectPool } from '../utils/ObjectPool'
+import { ObjectPool, Poolable } from '../utils/ObjectPool'
 import { logger } from '../utils/Logger'
 
-interface Particle extends THREE.Sprite {
+interface Particle extends THREE.Sprite, Poolable {
   velocity: THREE.Vector3
   lifetime: number
   age: number
@@ -30,8 +30,7 @@ export class EffectsSystem {
     this.particlePool = new ObjectPool<Particle>(
       () => this.createParticle(),
       50,  // Initial size
-      200, // Max size
-      (particle) => this.resetParticle(particle)
+      200  // Max size
     )
     
     logger.info('EffectsSystem initialized')
@@ -85,7 +84,9 @@ export class EffectsSystem {
     particle.fadeRate = 1
     particle.scaleRate = 0
     particle.rotationSpeed = 0
-    
+    particle.active = false
+    particle.reset = () => this.resetParticle(particle)
+
     return particle
   }
   

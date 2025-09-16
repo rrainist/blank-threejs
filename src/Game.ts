@@ -44,6 +44,33 @@ export class Game {
   private currentLevel = 1
   private raycaster: THREE.Raycaster
   private mouse: THREE.Vector2
+  private eventUnsubscribers: Array<() => void> = []
+  private readonly handleMouseClick = (event: MouseEvent): void => {
+    if (!this.player || this.gameManager.isInState(GameState.PAUSED)) return
+
+    // Convert mouse position to normalized device coordinates
+    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1
+    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
+
+    // Set up ray from camera through mouse position
+    this.raycaster.setFromCamera(this.mouse, this.camera)
+
+    // Calculate shooting direction
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
+    const intersectPoint = new THREE.Vector3()
+
+    if (this.raycaster.ray.intersectPlane(plane, intersectPoint)) {
+      const direction = new THREE.Vector3()
+      const playerCenter = this.player.position.clone()
+      playerCenter.y = 1
+
+      direction.subVectors(intersectPoint, playerCenter)
+      direction.y = 0
+      direction.normalize()
+
+      this.player.shoot(direction)
+    }
+  }
   
   constructor(scene: THREE.Scene, camera: THREE.OrthographicCamera, renderer: THREE.WebGLRenderer) {
     this.scene = scene
@@ -111,57 +138,53 @@ export class Game {
   private async loadAssets(): Promise<void> {
     // Create common textures
     this.assetLoader.createCommonTextures()
-    
+
     // Load sounds
     const soundsToLoad = [
       { key: 'collect', url: 'assets/sounds/General Sounds/Coins/sfx_coin_single1.wav' },
       { key: 'damage', url: 'assets/sounds/General Sounds/Simple Damage Sounds/sfx_damage_hit5.wav' },
       { key: 'jump', url: 'assets/sounds/Movement/Jumping and Landing/sfx_movement_jump8.wav' },
       { key: 'shoot', url: 'assets/sounds/General Sounds/Buttons/sfx_sounds_button6.wav' },
-      { key: 'enemyDeath', url: 'assets/sounds/General Sounds/Positive Sounds/sfx_sounds_powerup10.wav' }
+      { key: 'enemyDeath', url: 'assets/sounds/General Sounds/Positive Sounds/sfx_sounds_powerup10.wav' },
+      { key: 'pause', url: 'assets/sounds/General Sounds/Buttons/sfx_sounds_button3.wav' }
     ]
-    
-    const loadPromises = soundsToLoad.map(({ key, url }) => 
-      this.assetLoader.loadSound(key, url).catch(err => {
-        logger.warn(`Failed to load sound ${key}:`, err)
-      })
-    )
-    
-    await Promise.all(loadPromises)
+
+    this.audioManager.registerSounds(soundsToLoad)
+    await this.audioManager.preloadSounds(soundsToLoad.map(({ key }) => key))
   }
   
   private setupEventListeners(): void {
     // Game events
-    eventBus.on(GameEvents.ITEM_COLLECT, (event: any) => {
+    this.eventUnsubscribers.push(eventBus.on(GameEvents.ITEM_COLLECT, (event: any) => {
       this.gameManager.addScore(event.value)
       this.audioManager.play2D('collect', { volume: 0.5 })
-    })
-    
-    eventBus.on(GameEvents.PLAYER_DEATH, () => {
+    }))
+
+    this.eventUnsubscribers.push(eventBus.on(GameEvents.PLAYER_DEATH, () => {
       this.gameManager.changeState(GameState.GAME_OVER)
       this.timeManager.setTimeout(() => {
         this.resetGame()
       }, 3)
-    })
-    
-    eventBus.on(GameEvents.PLAYER_DAMAGE, () => {
+    }))
+
+    this.eventUnsubscribers.push(eventBus.on(GameEvents.PLAYER_DAMAGE, () => {
       this.audioManager.play2D('damage', { volume: 0.7 })
-    })
-    
-    eventBus.on('player:jump', () => {
+    }))
+
+    this.eventUnsubscribers.push(eventBus.on('player:jump', () => {
       this.audioManager.play2D('jump', { volume: 0.3 })
-    })
-    
-    eventBus.on('player:shoot', (event: any) => {
+    }))
+
+    this.eventUnsubscribers.push(eventBus.on('player:shoot', (event: any) => {
       const bullet = this.bulletPool.get()
       if (bullet) {
         bullet.fire(event.origin, event.direction)
         this.scene.add(bullet)
         this.audioManager.play2D('shoot', { volume: 0.3 })
       }
-    })
-    
-    eventBus.on(GameEvents.ENEMY_DEATH, (event: any) => {
+    }))
+
+    this.eventUnsubscribers.push(eventBus.on(GameEvents.ENEMY_DEATH, (event: any) => {
       this.gameManager.addScore(100)
       this.audioManager.play2D('enemyDeath', { volume: 0.4 })
       
@@ -170,10 +193,10 @@ export class Game {
         color: 0xff0000,
         count: 20
       })
-    })
-    
+    }))
+
     // Mouse click for shooting
-    window.addEventListener('click', this.onMouseClick.bind(this))
+    window.addEventListener('click', this.handleMouseClick)
   }
   
   private startGame(): void {
@@ -217,29 +240,6 @@ export class Game {
         rigidBody.body.velocity.set(0, 0, 0)
       }
       logger.info(`Player position set to: ${this.player.position.toArray()}`)
-      
-      // Debug: Log all objects in scene
-      let sceneObjects = [];
-      this.scene.traverse((obj) => {
-        sceneObjects.push({
-          name: obj.name || 'unnamed',
-          type: obj.type,
-          position: obj.position ? obj.position.toArray() : null,
-          visible: obj.visible
-        });
-      });
-      logger.info('Scene objects:', sceneObjects.filter(obj => obj.name !== 'unnamed'));
-      
-      // Debug: Specifically check if player is in scene
-      const playerInScene = this.scene.getObjectByName('Player');
-      logger.info('Player found in scene:', !!playerInScene);
-      if (playerInScene) {
-        logger.info('Player details:', {
-          position: playerInScene.position.toArray(),
-          visible: playerInScene.visible,
-          children: playerInScene.children.length
-        });
-      }
     }
   }
   
@@ -257,15 +257,32 @@ export class Game {
       enemy.dispose()
     })
     this.enemies = []
-    
-    // Remove level geometry
+
+    // Remove active bullets from the scene
+    const activeBullets = this.bulletPool.filter(bullet => bullet.active)
+    activeBullets.forEach(bullet => {
+      this.scene.remove(bullet)
+      this.bulletPool.release(bullet)
+    })
+
+    // Remove level geometry and physics bodies flagged for cleanup
     const objectsToRemove: THREE.Object3D[] = []
     this.scene.traverse((object) => {
-      if (object.name === 'Ground' || object.name.startsWith('Wall_') || object.name.startsWith('Obstacle_')) {
+      if (object !== this.scene && object.userData.levelObject) {
         objectsToRemove.push(object)
       }
     })
-    objectsToRemove.forEach(obj => this.scene.remove(obj))
+
+    objectsToRemove.forEach((object) => {
+      const rigidBody = this.physicsSystem.getRigidBody(object)
+      if (rigidBody) {
+        this.physicsSystem.removeRigidBody(rigidBody)
+      }
+
+      if (object.parent) {
+        object.parent.remove(object)
+      }
+    })
   }
   
   private spawnCollectibles(): void {
@@ -304,33 +321,6 @@ export class Game {
       this.scene.add(enemy)
       this.enemies.push(enemy)
     })
-  }
-  
-  private onMouseClick(event: MouseEvent): void {
-    if (!this.player || this.gameManager.isInState(GameState.PAUSED)) return
-    
-    // Convert mouse position to normalized device coordinates
-    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1
-    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
-    
-    // Set up ray from camera through mouse position
-    this.raycaster.setFromCamera(this.mouse, this.camera)
-    
-    // Calculate shooting direction
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
-    const intersectPoint = new THREE.Vector3()
-    
-    if (this.raycaster.ray.intersectPlane(plane, intersectPoint)) {
-      const direction = new THREE.Vector3()
-      const playerCenter = this.player.position.clone()
-      playerCenter.y = 1
-      
-      direction.subVectors(intersectPoint, playerCenter)
-      direction.y = 0
-      direction.normalize()
-      
-      this.player.shoot(direction)
-    }
   }
   
   update(deltaTime: number): void {
@@ -528,12 +518,16 @@ export class Game {
   }
   
   dispose(): void {
+    // Unsubscribe from events
+    this.eventUnsubscribers.forEach(unsubscribe => unsubscribe())
+    this.eventUnsubscribers = []
+
     // Remove event listeners
-    window.removeEventListener('click', this.onMouseClick)
-    
+    window.removeEventListener('click', this.handleMouseClick)
+
     // Clear entities
     this.clearLevel()
-    
+
     // Dispose systems
     this.inputManager.dispose()
     this.audioManager.dispose()

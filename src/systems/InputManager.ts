@@ -33,21 +33,19 @@ export class InputManager {
 
   private setupEventListeners(): void {
     // Keyboard events
-    window.addEventListener('keydown', this.onKeyDown.bind(this))
-    window.addEventListener('keyup', this.onKeyUp.bind(this))
+    window.addEventListener('keydown', this.onKeyDown)
+    window.addEventListener('keyup', this.onKeyUp)
     
     // Mouse events
-    window.addEventListener('mousedown', this.onMouseDown.bind(this))
-    window.addEventListener('mouseup', this.onMouseUp.bind(this))
-    window.addEventListener('mousemove', this.onMouseMove.bind(this))
+    window.addEventListener('mousedown', this.onMouseDown)
+    window.addEventListener('mouseup', this.onMouseUp)
+    window.addEventListener('mousemove', this.onMouseMove)
     
     // Prevent right-click context menu
-    window.addEventListener('contextmenu', (e) => {
-      if (this.enabled) e.preventDefault()
-    })
+    window.addEventListener('contextmenu', this.onContextMenu)
   }
 
-  private onKeyDown(event: KeyboardEvent): void {
+  private onKeyDown = (event: KeyboardEvent): void => {
     if (!this.enabled) return
     
     const key = event.key
@@ -57,7 +55,7 @@ export class InputManager {
     }
   }
 
-  private onKeyUp(event: KeyboardEvent): void {
+  private onKeyUp = (event: KeyboardEvent): void => {
     if (!this.enabled) return
     
     const key = event.key
@@ -65,7 +63,7 @@ export class InputManager {
     this.keysJustReleased.add(key)
   }
 
-  private onMouseDown(event: MouseEvent): void {
+  private onMouseDown = (event: MouseEvent): void => {
     if (!this.enabled) return
     
     const button = event.button
@@ -73,7 +71,7 @@ export class InputManager {
     this.mouseButtonsJustPressed.add(button)
   }
 
-  private onMouseUp(event: MouseEvent): void {
+  private onMouseUp = (event: MouseEvent): void => {
     if (!this.enabled) return
     
     const button = event.button
@@ -81,7 +79,7 @@ export class InputManager {
     this.mouseButtonsJustReleased.add(button)
   }
 
-  private onMouseMove(event: MouseEvent): void {
+  private onMouseMove = (event: MouseEvent): void => {
     if (!this.enabled) return
     
     this.mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1
@@ -92,6 +90,12 @@ export class InputManager {
     
     this.lastMousePosition.x = event.clientX
     this.lastMousePosition.y = event.clientY
+  }
+
+  private onContextMenu = (event: MouseEvent): void => {
+    if (this.enabled) {
+      event.preventDefault()
+    }
   }
 
   /**
@@ -229,6 +233,7 @@ export class InputManager {
     window.removeEventListener('mousedown', this.onMouseDown)
     window.removeEventListener('mouseup', this.onMouseUp)
     window.removeEventListener('mousemove', this.onMouseMove)
+    window.removeEventListener('contextmenu', this.onContextMenu)
     
     this.keys.clear()
     this.keysJustPressed.clear()

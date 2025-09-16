@@ -7,6 +7,7 @@ export function createLevel(scene: THREE.Scene, levelNumber: number): void {
   
   // Add lighting
   const ambientLight = new THREE.AmbientLight(0xffffff, SCENE.AMBIENT_INTENSITY)
+  ambientLight.userData.levelObject = true
   scene.add(ambientLight)
   
   const directionalLight = new THREE.DirectionalLight(0xffffff, SCENE.DIRECTIONAL_INTENSITY)
@@ -20,6 +21,8 @@ export function createLevel(scene: THREE.Scene, levelNumber: number): void {
   directionalLight.shadow.camera.far = 50
   directionalLight.shadow.mapSize.width = 2048
   directionalLight.shadow.mapSize.height = 2048
+  directionalLight.userData.levelObject = true
+  directionalLight.target.userData.levelObject = true
   scene.add(directionalLight)
   
   // Add fog
@@ -33,6 +36,7 @@ export function createLevel(scene: THREE.Scene, levelNumber: number): void {
   const ground = new THREE.Mesh(groundGeometry, groundMaterial)
   ground.position.set(0, -0.5, 0) // Half-buried so top is at y=0
   ground.name = 'Ground'
+  ground.userData.levelObject = true
   scene.add(ground)
   
   
@@ -65,6 +69,7 @@ export function createLevel(scene: THREE.Scene, levelNumber: number): void {
     const wall = new THREE.Mesh(geometry, wallMaterial)
     wall.position.set(pos[0], pos[1], pos[2])
     wall.name = name
+    wall.userData.levelObject = true
     scene.add(wall)
     
     
@@ -101,6 +106,7 @@ function createLevel1Obstacles(scene: THREE.Scene, physics: PhysicsSystem): void
     obstacle.castShadow = true
     obstacle.receiveShadow = true
     obstacle.name = `Obstacle_${index}`
+    obstacle.userData.levelObject = true
     scene.add(obstacle)
     
     // Add physics
@@ -132,6 +138,7 @@ function createLevel2Obstacles(scene: THREE.Scene, physics: PhysicsSystem): void
     trunk.castShadow = true
     trunk.receiveShadow = true
     trunk.name = `Obstacle_Trunk_${index}`
+    trunk.userData.levelObject = true
     scene.add(trunk)
     
     // Add physics to trunk
@@ -149,6 +156,7 @@ function createLevel2Obstacles(scene: THREE.Scene, physics: PhysicsSystem): void
     leaves.castShadow = true
     leaves.receiveShadow = true
     leaves.name = `Obstacle_Leaves_${index}`
+    leaves.userData.levelObject = true
     scene.add(leaves)
   })
 }

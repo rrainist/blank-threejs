@@ -21,6 +21,7 @@ export class AudioManager {
   
   // Sound cache
   private soundCache: Map<string, HTMLAudioElement> = new Map()
+  private soundUrls: Map<string, string> = new Map()
 
   private constructor() {
     // No Three.js AudioListener needed!
@@ -44,23 +45,23 @@ export class AudioManager {
    * Play a 2D sound using HTML5 Audio
    */
   play2D(soundKey: string, options: SoundOptions = {}): HTMLAudioElement | null {
-    // Map sound keys to actual file URLs
-    const soundUrls: Record<string, string> = {
-      'jump': 'assets/sounds/Movement/Jumping and Landing/sfx_movement_jump8.wav',
-      'collect': 'assets/sounds/General Sounds/Coins/sfx_coin_single1.wav',
-      'damage': 'assets/sounds/General Sounds/Simple Damage Sounds/sfx_damage_hit5.wav',
-      'gameOver': 'assets/sounds/Death Screams/Human/sfx_deathscream_human1.wav',
-      'button': 'assets/sounds/General Sounds/Buttons/sfx_sounds_button6.wav',
-      'powerup': 'assets/sounds/General Sounds/Positive Sounds/sfx_sounds_powerup10.wav'
-    }
-    
-    const soundUrl = soundUrls[soundKey]
+    const soundUrl = this.soundUrls.get(soundKey)
     if (!soundUrl) {
       logger.warn(`Sound key '${soundKey}' not found`)
       return null
     }
-    
-    const audio = new Audio(soundUrl)
+
+    let baseAudio = this.soundCache.get(soundKey)
+    if (!baseAudio) {
+      baseAudio = new Audio(soundUrl)
+      baseAudio.preload = 'auto'
+      baseAudio.load()
+      this.soundCache.set(soundKey, baseAudio)
+    }
+
+    const audio = baseAudio.cloneNode(true) as HTMLAudioElement
+    audio.src = soundUrl
+    audio.currentTime = 0
     
     // Set properties
     const volume = (options.volume || 1) * this.sfxVolume * this.masterVolume
@@ -94,8 +95,9 @@ export class AudioManager {
       this.currentMusic = undefined
     }
 
-    // Create new music audio
-    const audio = new Audio()
+    const soundUrl = this.soundUrls.get(soundKey) || soundKey
+    const audio = new Audio(soundUrl)
+    audio.preload = 'auto'
     audio.loop = options.loop !== false // Default to loop for music
     audio.volume = (options.volume || 1) * this.musicVolume * this.masterVolume
     
@@ -172,6 +174,48 @@ export class AudioManager {
     return this.muted
   }
 
+  registerSound(key: string, url: string): void {
+    this.soundUrls.set(key, url)
+  }
+
+  registerSounds(definitions: Array<{ key: string, url: string }>): void {
+    definitions.forEach(({ key, url }) => this.registerSound(key, url))
+  }
+
+  async preloadSound(key: string): Promise<void> {
+    const url = this.soundUrls.get(key)
+    if (!url) {
+      logger.warn(`Cannot preload sound '${key}' because it is not registered`)
+      return
+    }
+
+    if (this.soundCache.has(key)) {
+      const cached = this.soundCache.get(key)
+      if (cached && cached.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) {
+        return
+      }
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const audio = new Audio(url)
+      audio.preload = 'auto'
+      audio.addEventListener('canplaythrough', () => {
+        this.soundCache.set(key, audio)
+        resolve()
+      }, { once: true })
+      audio.addEventListener('error', (event) => {
+        reject(event)
+      }, { once: true })
+      audio.load()
+    }).catch(error => {
+      logger.warn(`Failed to preload audio '${key}':`, error)
+    })
+  }
+
+  async preloadSounds(keys: string[]): Promise<void> {
+    await Promise.all(keys.map(key => this.preloadSound(key)))
+  }
+
   /**
    * Cleanup
    */
@@ -181,5 +225,6 @@ export class AudioManager {
       this.currentMusic = undefined
     }
     this.soundCache.clear()
+    this.soundUrls.clear()
   }
 }

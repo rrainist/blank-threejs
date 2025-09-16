@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { COLLECTIBLE } from '../constants/GameConstants'
 
 export class Collectible extends THREE.Mesh {
   value: number
@@ -8,11 +9,11 @@ export class Collectible extends THREE.Mesh {
   color: number
   
   // Animation parameters
-  rotationSpeed: number = 2
-  floatSpeed: number = 2
-  floatHeight: number = 0.2
-  
-  constructor(value = 10, color = 0xffff00) {
+  rotationSpeed: number = COLLECTIBLE.ROTATION_SPEED
+  floatSpeed: number = COLLECTIBLE.FLOAT_SPEED
+  floatHeight: number = COLLECTIBLE.FLOAT_HEIGHT
+
+  constructor(value = COLLECTIBLE.DEFAULT_VALUE, color = COLLECTIBLE.DEFAULT_COLOR) {
     // Create geometry and material
     const geometry = new THREE.OctahedronGeometry(0.3, 0)
     const material = new THREE.MeshPhongMaterial({ 

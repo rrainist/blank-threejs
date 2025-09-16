@@ -31,7 +31,7 @@ class App {
       await this.game.initialize()
       
       // Setup resize handler
-      window.addEventListener('resize', this.onResize.bind(this))
+      window.addEventListener('resize', this.handleResize)
       
       // Hide loading indicator
       const loading = document.getElementById('loading')
@@ -82,7 +82,7 @@ class App {
     return renderer
   }
 
-  private onResize(): void {
+  private readonly handleResize = (): void => {
     const width = window.innerWidth
     const height = window.innerHeight
     
@@ -136,7 +136,7 @@ class App {
       cancelAnimationFrame(this.animationId)
     }
     
-    window.removeEventListener('resize', this.onResize)
+    window.removeEventListener('resize', this.handleResize)
     
     this.game.dispose()
     this.renderer.dispose()
