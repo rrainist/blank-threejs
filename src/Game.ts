@@ -1,547 +1,386 @@
 import * as THREE from 'three'
 import { GameManager, GameState } from './systems/GameManager'
-import { TimeManager } from './systems/TimeManager'
 import { InputManager } from './systems/InputManager'
-import { AssetLoader } from './systems/AssetLoader'
 import { AudioManager } from './systems/AudioManager'
 import { UIManager } from './systems/UIManager'
-import { CameraController } from './systems/CameraController'
-import { PhysicsSystem } from './systems/PhysicsSystem'
 import { EffectsSystem } from './systems/EffectsSystem'
-import { eventBus, GameEvents } from './utils/EventBus'
+import { PhysicsSystem, CollisionShape, type RigidBody } from './systems/PhysicsSystem'
+import { TimeManager } from './systems/TimeManager'
 import { logger } from './utils/Logger'
 import { Player } from './entities/Player'
 import { Enemy } from './entities/Enemy'
-import { Collectible } from './entities/Collectible'
-import { Bullet } from './entities/Bullet'
-import { ObjectPool } from './utils/ObjectPool'
-import { createLevel } from './Level'
+import { BOARD, ENEMY, ORB, PING, SCENE, WORLD } from './constants/GameConstants'
+
+interface GridPosition {
+  x: number
+  y: number
+}
+
+interface TileState {
+  type: 'floor' | 'resonator'
+  mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
+}
 
 export class Game {
-  private scene: THREE.Scene
-  private camera: THREE.OrthographicCamera
-  // private readonly renderer: THREE.WebGLRenderer
-  
-  // Systems
-  private gameManager: GameManager
-  private timeManager: TimeManager
-  private inputManager: InputManager
-  private assetLoader: AssetLoader
-  private audioManager: AudioManager
-  private uiManager: UIManager
-  private cameraController: CameraController
-  private physicsSystem: PhysicsSystem
-  private effectsSystem: EffectsSystem
-  
-  // Game entities
+  private readonly scene: THREE.Scene
+  private readonly camera: THREE.OrthographicCamera
+  private readonly renderer: THREE.WebGLRenderer
+
+  private readonly gameManager: GameManager
+  private readonly inputManager: InputManager
+  private readonly audioManager: AudioManager
+  private readonly uiManager: UIManager
+  private readonly effectsSystem: EffectsSystem
+  private readonly physicsSystem: PhysicsSystem
+  private readonly timeManager: TimeManager
+
+  private readonly gridGroup = new THREE.Group()
+  private readonly tiles: TileState[][] = []
+
   private player?: Player
-  private enemies: Enemy[] = []
-  private collectibles: Collectible[] = []
-  private collectiblePool: ObjectPool<Collectible>
-  private bulletPool: ObjectPool<Bullet>
-  
-  // Game state
-  private currentLevel = 1
-  private raycaster: THREE.Raycaster
-  private mouse: THREE.Vector2
-  private eventUnsubscribers: Array<() => void> = []
-  private readonly handleMouseClick = (event: MouseEvent): void => {
-    if (!this.player || this.gameManager.isInState(GameState.PAUSED)) return
+  private playerTile: GridPosition = { x: 0, y: 0 }
+  private resonatorTile: GridPosition = { x: 0, y: 0 }
 
-    // Convert mouse position to normalized device coordinates
-    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1
-    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
+  private enemy?: Enemy
+  private orb?: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>
+  private orbBody?: RigidBody
 
-    // Set up ray from camera through mouse position
-    this.raycaster.setFromCamera(this.mouse, this.camera)
+  private lastStatus = 'Step onto the glowing tile and press F to ping.'
+  private pausedMessage = 'Paused — press P to resume.'
 
-    // Calculate shooting direction
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
-    const intersectPoint = new THREE.Vector3()
-
-    if (this.raycaster.ray.intersectPlane(plane, intersectPoint)) {
-      const direction = new THREE.Vector3()
-      const playerCenter = this.player.position.clone()
-      playerCenter.y = 1
-
-      direction.subVectors(intersectPoint, playerCenter)
-      direction.y = 0
-      direction.normalize()
-
-      this.player.shoot(direction)
-    }
-  }
-  
-  constructor(scene: THREE.Scene, camera: THREE.OrthographicCamera, _renderer: THREE.WebGLRenderer) {
+  constructor(scene: THREE.Scene, camera: THREE.OrthographicCamera, renderer: THREE.WebGLRenderer) {
     this.scene = scene
     this.camera = camera
-    // this.renderer = renderer
-    
-    // Initialize systems
+    this.renderer = renderer
+
     this.gameManager = GameManager.getInstance()
-    this.timeManager = TimeManager.getInstance()
     this.inputManager = InputManager.getInstance()
-    this.assetLoader = AssetLoader.getInstance()
     this.audioManager = AudioManager.initialize()
-    this.uiManager = UIManager.initialize({ debugMode: false })
-    this.cameraController = CameraController.initialize(camera)
+    this.uiManager = UIManager.initialize()
+    this.effectsSystem = EffectsSystem.initialize(this.scene)
     this.physicsSystem = PhysicsSystem.getInstance()
-    this.effectsSystem = EffectsSystem.initialize(scene)
-    
-    // Initialize pools
-    this.collectiblePool = new ObjectPool<Collectible>(
-      () => new Collectible(10, 0xffff00),
-      20,
-      100,
-      (collectible) => {
-        collectible.position.set(0, -1000, 0)
-        if (collectible.parent) {
-          collectible.parent.remove(collectible)
-        }
-      }
-    )
-    
-    this.bulletPool = new ObjectPool<Bullet>(
-      () => new Bullet(),
-      20,
-      50,
-      (bullet) => {
-        bullet.position.set(0, -1000, 0)
-        if (bullet.parent) {
-          bullet.parent.remove(bullet)
-        }
-      }
-    )
-    
-    this.raycaster = new THREE.Raycaster()
-    this.mouse = new THREE.Vector2()
-    
-    logger.info('Game initialized')
+    this.timeManager = TimeManager.getInstance()
   }
-  
+
   async initialize(): Promise<void> {
-    // Load assets
-    await this.loadAssets()
-    
-    // Setup event listeners
-    this.setupEventListeners()
-    
-    // Create UI
-    this.uiManager.createCommonScreens()
-    this.uiManager.createHUD()
-    this.uiManager.createPauseMenu()
-    
-    // Start game
-    this.startGame()
-  }
-  
-  private async loadAssets(): Promise<void> {
-    // Create common textures
-    this.assetLoader.createCommonTextures()
+    this.renderer.setClearColor(SCENE.BACKGROUND, 1)
 
-    // Load sounds with fallback - don't fail if sounds are missing
-    const soundsToLoad = [
-      { key: 'collect', url: 'assets/sounds/General Sounds/Coins/sfx_coin_single1.wav' },
-      { key: 'damage', url: 'assets/sounds/General Sounds/Simple Damage Sounds/sfx_damage_hit5.wav' },
-      { key: 'jump', url: 'assets/sounds/Movement/Jumping and Landing/sfx_movement_jump8.wav' },
-      { key: 'shoot', url: 'assets/sounds/General Sounds/Buttons/sfx_sounds_button6.wav' },
-      { key: 'enemyDeath', url: 'assets/sounds/General Sounds/Positive Sounds/sfx_sounds_powerup10.wav' },
-      { key: 'pause', url: 'assets/sounds/General Sounds/Buttons/sfx_sounds_button3.wav' }
-    ]
+    this.setupLighting()
+    this.createBoard()
+    this.spawnPlayer()
+    this.spawnEnemy()
+    this.setupOrb()
 
-    try {
-      this.audioManager.registerSounds(soundsToLoad)
-      await this.audioManager.preloadSounds(soundsToLoad.map(({ key }) => key))
-    } catch (error) {
-      logger.warn('Failed to load some sounds, continuing without audio:', error)
-      // Game will continue without sounds
-    }
-  }
-  
-  private setupEventListeners(): void {
-    // Game events
-    this.eventUnsubscribers.push(eventBus.on(GameEvents.ITEM_COLLECT, (event) => {
-      this.gameManager.addScore(event.value)
-      this.audioManager.play2D('collect', { volume: 0.5 })
-    }))
+    await this.prepareAudio()
+    this.setupUI()
 
-    this.eventUnsubscribers.push(eventBus.on(GameEvents.PLAYER_DEATH, () => {
-      this.gameManager.changeState(GameState.GAME_OVER)
-      this.timeManager.setTimeout(() => {
-        this.resetGame()
-      }, 3)
-    }))
-
-    this.eventUnsubscribers.push(eventBus.on(GameEvents.PLAYER_DAMAGE, () => {
-      this.audioManager.play2D('damage', { volume: 0.7 })
-    }))
-
-    this.eventUnsubscribers.push(eventBus.on('player:jump', () => {
-      this.audioManager.play2D('jump', { volume: 0.3 })
-    }))
-
-    this.eventUnsubscribers.push(eventBus.on('player:shoot', (event) => {
-      const bullet = this.bulletPool.get()
-      if (bullet) {
-        bullet.fire(event.origin, event.direction)
-        this.scene.add(bullet)
-        this.audioManager.play2D('shoot', { volume: 0.3 })
-      }
-    }))
-
-    this.eventUnsubscribers.push(eventBus.on(GameEvents.ENEMY_DEATH, (event) => {
-      this.gameManager.addScore(100)
-      this.audioManager.play2D('enemyDeath', { volume: 0.4 })
-      
-      // Spawn particles
-      this.effectsSystem.explosion(event.position, {
-        color: 0xff0000,
-        count: 20
-      })
-    }))
-
-    // Mouse click for shooting
-    window.addEventListener('click', this.handleMouseClick)
-  }
-  
-  private startGame(): void {
-    // Create player
-    this.player = new Player()
-    this.scene.add(this.player)
-    this.player.initPhysics()
-    
-    // Setup camera
-    this.cameraController.setTarget(this.player)
-    
-    // Load level
-    this.loadLevel(1)
-    
-    // Start playing
     this.gameManager.changeState(GameState.PLAYING)
-    this.uiManager.showScreen('hud')
+    logger.info('Minimal playground ready')
   }
-  
-  private loadLevel(levelNumber: number): void {
-    this.currentLevel = levelNumber
-    
-    // Clear existing level
-    this.clearLevel()
-    
-    // Create level geometry
-    createLevel(this.scene, levelNumber)
-    
-    // Spawn collectibles
-    this.spawnCollectibles()
-    
-    // Spawn enemies
-    this.spawnEnemies()
-    
-    // Reset player position
-    if (this.player) {
-      this.player.position.set(0, 1.5, 0) // Match the physics box positioning
-      const rigidBody = this.physicsSystem.getRigidBody(this.player)
-      if (rigidBody) {
-        rigidBody.body.position.set(0, 1.5, 0) // Match the physics box positioning
-        rigidBody.body.velocity.set(0, 0, 0)
-      }
-      logger.info(`Player position set to: ${this.player.position.toArray()}`)
-    }
-  }
-  
-  private clearLevel(): void {
-    // Remove collectibles
-    this.collectibles.forEach(collectible => {
-      this.scene.remove(collectible)
-      this.collectiblePool.release(collectible)
-    })
-    this.collectibles = []
-    
-    // Remove enemies
-    this.enemies.forEach(enemy => {
-      this.scene.remove(enemy)
-      enemy.dispose()
-    })
-    this.enemies = []
 
-    // Remove active bullets from the scene
-    const activeBullets = this.bulletPool.filter(bullet => bullet.active)
-    activeBullets.forEach(bullet => {
-      this.scene.remove(bullet)
-      this.bulletPool.release(bullet)
-    })
+  update(): void {
+    this.timeManager.update(performance.now())
+    const delta = this.timeManager.getDeltaTime()
 
-    // Remove level geometry and physics bodies flagged for cleanup
-    const objectsToRemove: THREE.Object3D[] = []
-    this.scene.traverse((object) => {
-      if (object !== this.scene && object.userData.levelObject) {
-        objectsToRemove.push(object)
-      }
-    })
-
-    objectsToRemove.forEach((object) => {
-      const rigidBody = this.physicsSystem.getRigidBody(object)
-      if (rigidBody) {
-        this.physicsSystem.removeRigidBody(rigidBody)
-      }
-
-      if (object.parent) {
-        object.parent.remove(object)
-      }
-    })
-  }
-  
-  private spawnCollectibles(): void {
-    const positions = [
-      new THREE.Vector3(10, 1, 10),
-      new THREE.Vector3(-10, 1, 10),
-      new THREE.Vector3(10, 1, -10),
-      new THREE.Vector3(-10, 1, -10),
-      new THREE.Vector3(0, 1, 15),
-      new THREE.Vector3(0, 1, -15),
-      new THREE.Vector3(15, 1, 0),
-      new THREE.Vector3(-15, 1, 0)
-    ]
-    
-    positions.forEach((pos, index) => {
-      const collectible = this.collectiblePool.get()
-      collectible.position.copy(pos)
-      collectible.setValue(10 + index * 5)
-      collectible.baseY = pos.y
-      this.scene.add(collectible)
-      this.collectibles.push(collectible)
-    })
-  }
-  
-  private spawnEnemies(): void {
-    const positions = [
-      new THREE.Vector3(20, 1, 0),
-      new THREE.Vector3(-20, 1, 0),
-      new THREE.Vector3(0, 1, 20),
-      new THREE.Vector3(0, 1, -20)
-    ]
-    
-    positions.forEach(pos => {
-      const enemy = new Enemy()
-      enemy.position.copy(pos)
-      this.scene.add(enemy)
-      this.enemies.push(enemy)
-    })
-  }
-  
-  update(deltaTime: number): void {
-    // Update input
     this.inputManager.update()
-    
-    // Handle pause
-    if (this.inputManager.isKeyJustPressed('p') || this.inputManager.isKeyJustPressed('P')) {
-      this.gameManager.togglePause()
-      this.audioManager.play2D('pause', { volume: 0.3 })
-    }
-    
-    // Handle debug spawn
-    if (this.inputManager.isKeyJustPressed('c') && this.player) {
-      const offset = 3
-      const angle = Math.random() * Math.PI * 2
-      const x = this.player.position.x + Math.cos(angle) * offset
-      const z = this.player.position.z + Math.sin(angle) * offset
-      
-      const collectible = this.collectiblePool.get()
-      collectible.setValue(50)
-      collectible.setColor(0x00ffff)
-      collectible.position.set(x, 1, z)
-      collectible.baseY = 1
-      this.scene.add(collectible)
-      this.collectibles.push(collectible)
-    }
-    
-    // Handle mute
-    if (this.inputManager.isKeyJustPressed('m') || this.inputManager.isKeyJustPressed('M')) {
-      this.audioManager.toggleMute()
-      logger.info(`Audio ${this.audioManager.isMuted() ? 'muted' : 'unmuted'}`)
-    }
-    
-    // Update game manager
-    this.gameManager.update(deltaTime)
-    
-    // Skip entity updates if paused
-    if (this.gameManager.isInState(GameState.PAUSED)) {
-      this.inputManager.lateUpdate()
-      return
-    }
-    
-    // Update game when playing
+    this.handleInput()
+
     if (this.gameManager.isInState(GameState.PLAYING)) {
-      // Update physics
-      this.physicsSystem.update(deltaTime)
-      
-      // Update player
-      if (this.player) {
-        this.player.update(deltaTime)
-      }
-      
-      // Update enemies
-      this.enemies = this.enemies.filter(enemy => {
-        enemy.update(deltaTime)
-        if (enemy.health <= 0) {
-          this.scene.remove(enemy)
-          enemy.dispose()
-          return false
-        }
-        return true
-      })
-      
-      // Update collectibles
-      this.collectibles.forEach(collectible => {
-        collectible.update(deltaTime)
-      })
-      
-      // Update bullets
-      this.bulletPool.forEach(bullet => {
-        if (bullet.active) {
-          bullet.update(deltaTime)
-        }
-      })
-      
-      // Check collisions
-      this.checkCollisions()
-      this.checkBulletCollisions()
-      
-      // Update camera
-      this.cameraController.update(deltaTime)
-      
-      // Update effects
-      this.effectsSystem.update(deltaTime)
+      this.updateEnemy(delta)
+      this.physicsSystem.update(delta)
+      this.effectsSystem.update(delta)
     }
-    
-    // Update UI
-    this.uiManager.update(deltaTime)
-    
-    // Clear input state
+
+    this.uiManager.update(delta)
     this.inputManager.lateUpdate()
   }
-  
-  private checkCollisions(): void {
-    if (!this.player) return
-    
-    const playerPos = this.player.position
-    
-    // Check collectible collisions
-    this.collectibles = this.collectibles.filter(collectible => {
-      const distance = playerPos.distanceTo(collectible.position)
-      if (distance < 1.5) {
-        eventBus.emit(GameEvents.ITEM_COLLECT, {
-          item: collectible,
-          collector: this.player,
-          value: collectible.value
-        })
-        
-        // Particle effect
-        this.effectsSystem.sparkle(collectible.position, {
-          color: collectible.color,
-          count: 10
-        })
-        
-        this.scene.remove(collectible)
-        this.collectiblePool.release(collectible)
-        
-        // Check level complete
-        if (this.collectibles.length === 1) { // This will be the last one
-          this.onLevelComplete()
-        }
-        
-        return false
-      }
-      return true
-    })
-  }
-  
-  private checkBulletCollisions(): void {
-    const bullets = this.bulletPool.filter(bullet => bullet.active)
-    
-    bullets.forEach(bullet => {
-      if (!bullet.active) return
-      
-      this.enemies.forEach(enemy => {
-        if (!enemy.visible) return
-        
-        const distance = bullet.position.distanceTo(enemy.position)
-        if (distance < 1.0) {
-          enemy.takeDamage(bullet.damage)
-          
-          if (enemy.health <= 0) {
-            eventBus.emit(GameEvents.ENEMY_DEATH, {
-              enemy,
-              position: enemy.position.clone()
-            })
-          }
-          
-          this.scene.remove(bullet)
-          this.bulletPool.release(bullet)
-          
-          // Flash effect
-          if (enemy.mesh && enemy.mesh.material instanceof THREE.MeshPhongMaterial) {
-            const material = enemy.mesh.material
-            const originalColor = material.color.getHex()
-            material.color.setHex(0xffffff)
-            
-            this.timeManager.setTimeout(() => {
-              if (enemy.mesh && enemy.mesh.material instanceof THREE.MeshPhongMaterial) {
-                enemy.mesh.material.color.setHex(originalColor)
-              }
-            }, 0.1)
-          }
-        }
-      })
-    })
-  }
-  
-  private onLevelComplete(): void {
-    logger.info(`Level ${this.currentLevel} complete!`)
-    
-    this.currentLevel++
-    if (this.currentLevel > 2) {
-      this.currentLevel = 1
-    }
-    
-    this.gameManager.setLevel(this.currentLevel)
-    
-    // Load next level after delay
-    this.timeManager.setTimeout(() => {
-      this.loadLevel(this.currentLevel)
-    }, 1.5)
-  }
-  
-  private resetGame(): void {
-    this.gameManager.resetGameData()
-    this.currentLevel = 1
-    this.loadLevel(1)
-    this.gameManager.changeState(GameState.PLAYING)
-  }
-  
+
   resize(): void {
-    this.cameraController.onResize()
+    // No special handling required, method kept for API parity
   }
-  
+
   dispose(): void {
-    // Unsubscribe from events
-    this.eventUnsubscribers.forEach(unsubscribe => unsubscribe())
-    this.eventUnsubscribers = []
+    this.clearBoard()
+    if (this.player) {
+      this.scene.remove(this.player)
+      this.player = undefined
+    }
+    if (this.enemy) {
+      this.scene.remove(this.enemy)
+      this.enemy = undefined
+    }
+    if (this.orb) {
+      this.scene.remove(this.orb)
+      this.orb = undefined
+    }
 
-    // Remove event listeners
-    window.removeEventListener('click', this.handleMouseClick)
+    this.physicsSystem.clear()
+    this.effectsSystem.clear()
+  }
 
-    // Clear entities
-    this.clearLevel()
+  private setupLighting(): void {
+    const ambient = new THREE.AmbientLight(0xffffff, SCENE.AMBIENT_INTENSITY)
+    this.scene.add(ambient)
 
-    // Dispose systems
-    this.inputManager.dispose()
-    this.audioManager.dispose()
-    this.physicsSystem.dispose()
-    this.effectsSystem.dispose()
-    this.cameraController.dispose()
-    this.uiManager.dispose()
-    this.gameManager.dispose()
-    
-    logger.info('Game disposed')
+    const directional = new THREE.DirectionalLight(0xffffff, SCENE.DIRECTIONAL_INTENSITY)
+    directional.position.set(14, 18, 10)
+    directional.castShadow = true
+    directional.shadow.mapSize.set(512, 512)
+    this.scene.add(directional)
+  }
+
+  private createBoard(): void {
+    const tileGeometry = new THREE.BoxGeometry(WORLD.TILE_SIZE, WORLD.TILE_HEIGHT, WORLD.TILE_SIZE)
+    this.resonatorTile = {
+      x: Math.floor(WORLD.WIDTH / 2),
+      y: Math.max(0, Math.floor(WORLD.HEIGHT / 2) - 1)
+    }
+
+    for (let y = 0; y < WORLD.HEIGHT; y += 1) {
+      const row: TileState[] = []
+      for (let x = 0; x < WORLD.WIDTH; x += 1) {
+        const isResonator = x === this.resonatorTile.x && y === this.resonatorTile.y
+        const material = new THREE.MeshStandardMaterial({
+          color: isResonator ? BOARD.RESONATOR_COLOR : BOARD.FLOOR_COLOR,
+          emissive: isResonator ? new THREE.Color(BOARD.RESONATOR_COLOR).multiplyScalar(0.25) : new THREE.Color(0x000000)
+        })
+
+        const mesh = new THREE.Mesh(tileGeometry.clone(), material)
+        mesh.receiveShadow = true
+
+        const { x: worldX, z: worldZ } = this.gridToWorldCenter({ x, y })
+        mesh.position.set(worldX, -WORLD.TILE_HEIGHT / 2, worldZ)
+
+        if (isResonator) {
+          const marker = new THREE.Mesh(
+            new THREE.CylinderGeometry(WORLD.TILE_SIZE * 0.2, WORLD.TILE_SIZE * 0.2, WORLD.TILE_HEIGHT * 0.5, 24),
+            new THREE.MeshStandardMaterial({ color: BOARD.MARKER_COLOR, emissive: 0x0, metalness: 0.2, roughness: 0.4 })
+          )
+          marker.position.set(worldX, 0, worldZ)
+          this.gridGroup.add(marker)
+        }
+
+        row.push({ type: isResonator ? 'resonator' : 'floor', mesh })
+        this.gridGroup.add(mesh)
+      }
+      this.tiles.push(row)
+    }
+
+    this.scene.add(this.gridGroup)
+  }
+
+  private spawnPlayer(): void {
+    this.player = new Player(WORLD.TILE_SIZE)
+    this.scene.add(this.player)
+
+    this.playerTile = {
+      x: Math.floor(WORLD.WIDTH / 2),
+      y: WORLD.HEIGHT - 2
+    }
+
+    this.setPlayerPosition(this.playerTile)
+    this.configureCamera()
+  }
+
+  private spawnEnemy(): void {
+    this.enemy = new Enemy(WORLD.TILE_SIZE)
+    this.scene.add(this.enemy)
+    this.enemy.position.set(ENEMY.ORBIT_RADIUS, ENEMY.HOVER_HEIGHT, 0)
+  }
+
+  private setupOrb(): void {
+    const sphere = new THREE.SphereGeometry(ORB.RADIUS, 24, 16)
+    const material = new THREE.MeshStandardMaterial({ color: 0xb0d9ff, roughness: 0.3, metalness: 0.1 })
+    this.orb = new THREE.Mesh(sphere, material)
+    this.orb.castShadow = true
+    this.orb.position.set(0, ORB.RADIUS * 2, -WORLD.TILE_SIZE * 0.8)
+    this.scene.add(this.orb)
+
+    const ground = new THREE.Mesh(
+      new THREE.BoxGeometry(WORLD.WIDTH * WORLD.TILE_SIZE, WORLD.TILE_HEIGHT, WORLD.HEIGHT * WORLD.TILE_SIZE),
+      new THREE.MeshStandardMaterial({ color: 0x141d28 })
+    )
+    ground.receiveShadow = true
+    ground.position.set(0, -WORLD.TILE_HEIGHT / 2, 0)
+    this.scene.add(ground)
+
+    this.physicsSystem.createRigidBody(ground, {
+      isStatic: true,
+      shape: CollisionShape.BOX,
+      halfExtents: new THREE.Vector3(
+        (WORLD.WIDTH * WORLD.TILE_SIZE) / 2,
+        WORLD.TILE_HEIGHT / 2,
+        (WORLD.HEIGHT * WORLD.TILE_SIZE) / 2
+      ),
+      friction: 0.8
+    })
+
+    this.orbBody = this.physicsSystem.createRigidBody(this.orb, {
+      mass: ORB.MASS,
+      shape: CollisionShape.SPHERE,
+      radius: ORB.RADIUS,
+      restitution: ORB.BOUNCE,
+      friction: 0.2
+    })
+  }
+
+  private async prepareAudio(): Promise<void> {
+    try {
+      this.audioManager.registerSound(PING.SOUND_KEY, PING.SOUND_URL)
+      await this.audioManager.preloadSound(PING.SOUND_KEY)
+    } catch (error) {
+      logger.warn('Audio preload failed; continuing without sound', error)
+    }
+  }
+
+  private setupUI(): void {
+    this.uiManager.setTitle('Playground Controls')
+    this.uiManager.setInstructions([
+      'WASD / Arrow keys — move',
+      'F — ping the resonator',
+      'P — pause'
+    ])
+    this.uiManager.setStatus(this.lastStatus)
+    this.uiManager.setHint('Template starts here: replace the scene or build on top.')
+    this.uiManager.pushMessage('Minimal scene booted. Explore and customize.')
+  }
+
+  private handleInput(): void {
+    if (this.wasKeyJustPressed('p')) {
+      this.gameManager.togglePause()
+      if (this.gameManager.isInState(GameState.PAUSED)) {
+        this.timeManager.pause()
+        this.uiManager.setStatus(this.pausedMessage)
+        this.uiManager.pushMessage('Simulation paused.')
+      } else {
+        this.timeManager.resume()
+        this.uiManager.setStatus(this.lastStatus)
+        this.uiManager.pushMessage('Back to realtime.')
+      }
+      return
+    }
+
+    if (!this.gameManager.isInState(GameState.PLAYING)) {
+      return
+    }
+
+    if (this.handleMovement()) {
+      return
+    }
+
+    if (this.wasKeyJustPressed('f')) {
+      this.triggerPing()
+    }
+  }
+
+  private handleMovement(): boolean {
+    const directions: Array<{ keys: string[]; delta: GridPosition; summary: string }> = [
+      { keys: ['w', 'ArrowUp'], delta: { x: 0, y: -1 }, summary: 'north' },
+      { keys: ['s', 'ArrowDown'], delta: { x: 0, y: 1 }, summary: 'south' },
+      { keys: ['a', 'ArrowLeft'], delta: { x: -1, y: 0 }, summary: 'west' },
+      { keys: ['d', 'ArrowRight'], delta: { x: 1, y: 0 }, summary: 'east' }
+    ]
+
+    for (const { keys, delta, summary } of directions) {
+      if (keys.some(key => this.wasKeyJustPressed(key))) {
+        if (this.tryMove(delta)) {
+          this.lastStatus = `Moved ${summary}.`;
+          this.uiManager.setStatus(this.lastStatus)
+        }
+        return true
+      }
+    }
+
+    return false
+  }
+
+  private tryMove(delta: GridPosition): boolean {
+    const target = { x: this.playerTile.x + delta.x, y: this.playerTile.y + delta.y }
+    if (!this.withinBounds(target)) {
+      this.uiManager.pushMessage('The platform ends here.')
+      return false
+    }
+
+    this.setPlayerPosition(target)
+    this.uiManager.pushMessage(`Standing on tile (${target.x + 1}, ${target.y + 1}).`)
+    return true
+  }
+
+  private triggerPing(): void {
+    const onResonator = this.playerTile.x === this.resonatorTile.x && this.playerTile.y === this.resonatorTile.y
+    if (!onResonator) {
+      this.lastStatus = 'Step onto the glowing tile to ping it.'
+      this.uiManager.setStatus(this.lastStatus)
+      this.uiManager.pushMessage('Ping fizzles — you are not on the resonator.')
+      return
+    }
+
+    this.audioManager.play2D(PING.SOUND_KEY, { volume: 0.45 })
+
+    const resonator = this.tiles[this.resonatorTile.y][this.resonatorTile.x]
+    const effectOrigin = resonator.mesh.position.clone().add(new THREE.Vector3(0, WORLD.TILE_HEIGHT * 0.75, 0))
+    this.effectsSystem.sparkle(effectOrigin, { color: PING.EFFECT_COLOR, count: 14 })
+
+    if (this.orbBody) {
+      this.physicsSystem.applyImpulse(
+        this.orbBody,
+        new THREE.Vector3(0, PING.IMPULSE_STRENGTH, 0)
+      )
+    }
+
+    this.lastStatus = 'Resonator responds with a gentle hum.'
+    this.uiManager.setStatus(this.lastStatus)
+    this.uiManager.pushMessage('Ping! Energy ripples across the board.')
+  }
+
+  private updateEnemy(delta: number): void {
+    if (!this.enemy) return
+
+    const elapsed = this.timeManager.getElapsedTime()
+    const orbitX = Math.cos(elapsed * ENEMY.ROTATION_SPEED) * ENEMY.ORBIT_RADIUS
+    const orbitZ = Math.sin(elapsed * ENEMY.ROTATION_SPEED) * ENEMY.ORBIT_RADIUS
+    this.enemy.position.set(orbitX, ENEMY.HOVER_HEIGHT, orbitZ)
+    this.enemy.rotation.y += delta * 1.5
+  }
+
+  private setPlayerPosition(position: GridPosition): void {
+    if (!this.player) return
+
+    this.playerTile = position
+    const { x, z } = this.gridToWorldCenter(position)
+    this.player.position.set(x, this.player.height / 2, z)
+  }
+
+  private configureCamera(): void {
+    const spanX = WORLD.WIDTH * WORLD.TILE_SIZE
+    const spanY = WORLD.HEIGHT * WORLD.TILE_SIZE
+    const maxSpan = Math.max(spanX, spanY)
+
+    this.camera.up.set(0, 0, -1)
+    this.camera.position.set(0, maxSpan, maxSpan)
+    this.camera.lookAt(new THREE.Vector3(0, 0, 0))
+  }
+
+  private clearBoard(): void {
+    this.scene.remove(this.gridGroup)
+    this.tiles.splice(0, this.tiles.length)
+  }
+
+  private withinBounds(position: GridPosition): boolean {
+    return position.x >= 0 && position.x < WORLD.WIDTH && position.y >= 0 && position.y < WORLD.HEIGHT
+  }
+
+  private gridToWorldCenter(position: GridPosition): { x: number; z: number } {
+    const offsetX = (WORLD.WIDTH * WORLD.TILE_SIZE) / 2
+    const offsetZ = (WORLD.HEIGHT * WORLD.TILE_SIZE) / 2
+
+    return {
+      x: position.x * WORLD.TILE_SIZE - offsetX + WORLD.TILE_SIZE / 2,
+      z: position.y * WORLD.TILE_SIZE - offsetZ + WORLD.TILE_SIZE / 2
+    }
+  }
+
+  private wasKeyJustPressed(key: string): boolean {
+    return this.inputManager.isKeyJustPressed(key) || this.inputManager.isKeyJustPressed(key.toLowerCase())
   }
 }

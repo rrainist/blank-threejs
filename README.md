@@ -1,6 +1,6 @@
 # Three.js Game Development Template
 
-An "advanced hello world" for Three.js game prototyping. This project boots straight into a small top-down arena demo so you can immediately tweak gameplay, swap assets, or rip pieces out for your own idea. It is intentionally verbose so both humans and LLMs can see the moving parts of a minimal game loop without wading through a full production stack.
+A deliberately small "hello game" scaffold for Three.js + TypeScript. The default scene is a 4×4 tile playground: move a cube avatar, ping a glowing resonator, nudge a physics orb, and watch a single roaming sentinel. The goal is to show how input, UI, audio, effects, physics, and state management plug together without front-loading a full game design.
 
 ## 🚀 Quick Start
 
@@ -18,35 +18,36 @@ npm run preview
 
 ## 🧱 What's Inside
 
-- **Game.ts** — orchestrates scene setup, entity spawning, per-frame updates, and UI/audio hooks
-- **Systems** — singletons for input, timing, physics (cannon-es), effects, simple audio playback, and camera control
-- **Entities** — Player, Enemy, Bullet, and Collectible examples that demonstrate pooling, physics integration, and events
-- **UI layer** — lightweight DOM HUD/pause menu wiring via `UIManager`
-- **Utilities** — event bus, logging helper, object pool, configurable constants
+- **Game.ts** — wires the playground scene, moves the player on a tiny grid, and demonstrates one action (`F` to ping) that touches audio, effects, and physics
+- **Systems** — singletons for input, timing, physics (cannon-es), particle effects, audio, and game-state toggling; the default scene exercises each of them once
+- **Entities** — lightweight `Player` and `Enemy` meshes ready to swap or extend; extra examples remain in the folder for reference
+- **UI layer** — compact overlay from `UIManager` that shows controls, status, and a short feed of recent actions
+- **Utilities** — logging, event bus, and object pooling helpers that stay out of the way until you need them
 
-Everything runs off `src/main.ts`, which prepares Three.js, hands control to the `Game` class, and registers hot-reload friendly cleanup.
+`src/main.ts` handles renderer bootstrap and hot-reload cleanup, then hands control to the `Game` class.
 
 ## 🗂️ Project Layout
 
 ```
 src/
 ├── main.ts          # Entry point: creates renderer/camera/scene and starts the loop
-├── Game.ts          # Core game orchestration
-├── Level.ts         # Builds demo geometry, lighting, and physics bodies
-├── scene.ts         # Minimal scene factory
-├── controls.ts      # Optional orbit-style mouse controls (unused in default demo)
-├── constants/       # Gameplay/visual tuning knobs
-├── entities/        # Player, Enemy, Bullet, Collectible implementations
-├── systems/         # Input, time, physics, audio, UI, camera, effects, asset loading
+├── Game.ts          # Minimal gameplay loop and scene wiring
+├── Level.ts         # Legacy hook kept for compatibility (clears old level meshes)
+├── scene.ts         # Scene factory with background + fog
+├── constants/       # Tunables for scene colors, board size, physics knobs
+├── entities/        # Player, Enemy, Bullet, Collectible examples
+├── systems/         # Input, time, physics, audio, UI, effects, asset loading
 └── utils/           # Logger, EventBus, ObjectPool, helpers
 ```
 
+Extended assets, sound packs, and unused level JSON files now live under `assets/examples/`. Copy or import them when you need more content; the base `assets/` folder only ships the one UI ping.
+
 ## 🕹️ Adapting the Template
 
-- **Swap the demo**: Replace `Game.ts` with your own scene manager, or keep it and modify the entity spawning/logic sections.
-- **Pick systems a la carte**: Import only the managers you need from `src/systems/`. Each is self-contained with minimal coupling.
-- **Replace assets quickly**: Drop files in `assets/` and register them through `AssetLoader` or directly in your systems.
-- **Extend safely**: `TimeManager`, `EventBus`, `ObjectPool`, and the constants modules provide common patterns without imposing an engine.
+- **Replace the playground**: swap out `Game.ts` with your scene manager, or keep the grid helpers and build new interactions.
+- **Grow systems**: the singletons are already initialized—call deeper APIs (physics shapes, timers, pooled effects) as you expand.
+- **Drop in assets**: add files under `assets/` and register them with `AudioManager`, `AssetLoader`, or your own loaders.
+- **Keep iteration fast**: the structure favors hot reload, small experiments, and LLM co-development.
 
 ## 🛠️ Useful Scripts
 

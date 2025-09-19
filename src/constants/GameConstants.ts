@@ -1,48 +1,37 @@
-// Scene setup
 export const SCENE = {
-  AMBIENT_INTENSITY: 0.6,
-  DIRECTIONAL_INTENSITY: 0.8,
-  FOG_NEAR: 20,
-  FOG_FAR: 100
+  AMBIENT_INTENSITY: 0.7,
+  DIRECTIONAL_INTENSITY: 0.5,
+  BACKGROUND: 0x1d2230
 } as const
 
-// Level dimensions used when generating the arena
-export const FIELD = {
-  WIDTH: 50,
-  HEIGHT: 50,
-  GROUND_Y: 0
+export const WORLD = {
+  WIDTH: 4,
+  HEIGHT: 4,
+  TILE_SIZE: 2,
+  TILE_HEIGHT: 0.2
 } as const
 
-// Player tuning
-export const PLAYER = {
-  HEALTH: 100,
-  MOVE_SPEED: 15,
-  JUMP_SPEED: 15,
-  FORCE_MULTIPLIER: 100,
-  DAMAGE_FLASH_DURATION: 200,
-  SHOOT_FLASH_DURATION: 100,
-  COLOR: 0x00ff00,
-  EMISSIVE_COLOR: 0x002200
+export const BOARD = {
+  FLOOR_COLOR: 0x304b63,
+  RESONATOR_COLOR: 0xffc05b,
+  MARKER_COLOR: 0x4db8ff
 } as const
 
-// Enemy tuning
+export const PING = {
+  SOUND_KEY: 'ping',
+  SOUND_URL: 'assets/sounds/ui/ping.wav',
+  IMPULSE_STRENGTH: 3.5,
+  EFFECT_COLOR: 0xfff0a6
+} as const
+
 export const ENEMY = {
-  HEALTH: 50,
-  SPEED: 3,
-  ATTACK_DAMAGE: 10,
-  COLOR: 0xff0000,
-  EMISSIVE_COLOR: 0x440000,
-  FORCE_MULTIPLIER: 50,
-  MOVE_UPDATE_INTERVAL: 0.2,
-  REACHED_DISTANCE: 2,
-  DAMAGE_FLASH_DURATION: 100
+  ORBIT_RADIUS: 3,
+  ROTATION_SPEED: 0.6,
+  HOVER_HEIGHT: 1.2
 } as const
 
-// Collectible animation defaults
-export const COLLECTIBLE = {
-  DEFAULT_VALUE: 10,
-  DEFAULT_COLOR: 0xffff00,
-  ROTATION_SPEED: 2,
-  FLOAT_SPEED: 2,
-  FLOAT_HEIGHT: 0.2
+export const ORB = {
+  RADIUS: 0.45,
+  MASS: 0.6,
+  BOUNCE: 0.65
 } as const

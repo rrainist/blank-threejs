@@ -1,74 +1,38 @@
 import * as THREE from 'three'
-import { COLLECTIBLE } from '../constants/GameConstants'
 
-export class Collectible extends THREE.Mesh {
-  value: number
-  baseY: number
-  time: number = 0
-  active: boolean = false
-  color: number
-  
-  // Animation parameters
-  rotationSpeed: number = COLLECTIBLE.ROTATION_SPEED
-  floatSpeed: number = COLLECTIBLE.FLOAT_SPEED
-  floatHeight: number = COLLECTIBLE.FLOAT_HEIGHT
+const DEFAULTS = {
+  VALUE: 5,
+  COLOR: 0xffff00
+} as const
 
-  constructor(value: number = COLLECTIBLE.DEFAULT_VALUE, color: number = COLLECTIBLE.DEFAULT_COLOR) {
-    // Create geometry and material
-    const geometry = new THREE.OctahedronGeometry(0.3, 0)
-    const material = new THREE.MeshPhongMaterial({ 
-      color,
-      emissive: color,
-      emissiveIntensity: 0.3,
-      shininess: 100
-    })
-    
-    // Call parent constructor
+/**
+ * Lightweight collectible stub kept for compatibility with shared utilities.
+ */
+export class Collectible extends THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial> {
+  public value: number
+  public baseY = 0
+  public active = true
+
+  constructor(value: number = DEFAULTS.VALUE, color: number = DEFAULTS.COLOR) {
+    const geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8)
+    const material = new THREE.MeshStandardMaterial({ color })
     super(geometry, material)
-    
-    // Set properties
+
     this.value = value
-    this.color = color
-    this.baseY = 1
     this.castShadow = true
     this.receiveShadow = true
     this.name = 'Collectible'
-    
-    // Add to collectible group for easy identification
-    this.userData.type = 'collectible'
   }
-  
-  update(deltaTime: number): void {
-    // Rotate
-    this.rotation.y += this.rotationSpeed * deltaTime
-    
-    // Float up and down
-    this.time += deltaTime
-    this.position.y = this.baseY + Math.sin(this.time * this.floatSpeed) * this.floatHeight
-  }
-  
-  setColor(color: number): void {
-    if (this.material instanceof THREE.MeshPhongMaterial) {
-      this.material.color.setHex(color)
-      this.material.emissive.setHex(color)
-    }
-  }
-  
+
   setValue(value: number): void {
     this.value = value
   }
-  
-  // For object pooling
-  reset(): void {
-    this.position.set(0, -1000, 0) // Move off screen
-    this.time = 0
-    this.visible = true
+
+  setColor(color: number): void {
+    this.material.color.setHex(color)
   }
-  
-  // Collection effect
-  collect(): void {
-    // Simple collection effect - scale down and fade
-    this.visible = false // Hide immediately
-    // In a real game, you'd trigger particles here
+
+  update(_deltaTime: number): void {
+    // No animation in the turn-based prototype, but keep method for compatibility
   }
 }

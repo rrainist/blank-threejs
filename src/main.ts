@@ -2,14 +2,13 @@ import * as THREE from 'three'
 import { Game } from './Game'
 import { createScene } from './scene'
 import { logger } from './utils/Logger'
-import { TimeManager } from './systems/TimeManager'
+import { SCENE } from './constants/GameConstants'
 
 class App {
   private scene!: THREE.Scene
   private camera!: THREE.OrthographicCamera
   private renderer!: THREE.WebGLRenderer
   private game!: Game
-  private timeManager!: TimeManager
   private animationId: number | null = null
 
   constructor() {
@@ -22,9 +21,6 @@ class App {
       this.scene = createScene()
       this.camera = this.createCamera()
       this.renderer = this.createRenderer()
-      
-      // Initialize time manager
-      this.timeManager = TimeManager.getInstance()
       
       // Create and initialize game
       this.game = new Game(this.scene, this.camera, this.renderer)
@@ -69,7 +65,7 @@ class App {
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.outputColorSpace = THREE.SRGBColorSpace
-    renderer.setClearColor(0x87ceeb, 1.0)
+    renderer.setClearColor(SCENE.BACKGROUND, 1.0)
     
     const app = document.getElementById('app')
     if (app) {
@@ -106,12 +102,8 @@ class App {
   private animate = (): void => {
     this.animationId = requestAnimationFrame(this.animate)
     
-    // Update time
-    this.timeManager.update(performance.now())
-    const deltaTime = this.timeManager.getDeltaTime()
-    
     // Update game
-    this.game.update(deltaTime)
+    this.game.update()
     
     // Render
     this.renderer.render(this.scene, this.camera)
