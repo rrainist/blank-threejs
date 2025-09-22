@@ -15,6 +15,6 @@ export default defineConfig({
     open: true
   },
   optimizeDeps: {
-    include: ['phaser']
+    include: ['@babylonjs/core', '@babylonjs/gui']
   }
 }) 

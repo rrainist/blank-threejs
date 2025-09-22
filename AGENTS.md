@@ -1,19 +1,34 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-Source lives in `src/`, with entry workflows in `main.ts`, `Game.ts`, and subsystem folders like `systems/`, `entities/`, `utils/`, and `constants/`. Shared controls sit in `controls.ts`, scene wiring in `scene.ts`, and level orchestration in `Level.ts`. Runtime assets (audio, textures, models) stay under `assets/`; nest large files by feature to match their consuming system. Vite configuration is in `vite.config.ts`, and TypeScript tuning in `tsconfig.json`.
+- Source code lives in `src/`; entry points include `src/main.ts`, `src/Game.ts`, and scene wiring in `src/scene.ts`.
+- Systems and entities reside under `src/systems/` and `src/entities/`; keep new modules cohesive and import explicitly.
+- Shared utilities (`src/utils/`), constants (`src/constants/`), and controls (`src/controls.ts`) should remain lightweight and reusable.
+- Runtime assets belong in `assets/`, organized by feature (e.g., `assets/sounds/Explosions/`). Add large binaries there so Vite copies them into `dist/`.
 
 ## Build, Test, and Development Commands
-Use `npm run dev` for a hot-reloaded Vite server targeting `src/main.ts`. `npm run build` type-checks with `tsc` and emits `dist/`. `npm run preview` serves the build for smoke testing. Lint with `npm run lint`, passing `-- --fix` for auto-fixes. Run unit tests with `npx jest`, adding `--watch` while iterating or `--coverage` before review.
+- `npm run dev`: Launches the Vite dev server against `src/main.ts` for hot-reload iteration.
+- `npm run build`: Runs TypeScript checks and emits production assets into `dist/`.
+- `npm run preview`: Serves the built bundle locally for smoke testing.
+- `npm run lint`: Executes ESLint (Airbnb TS preset). Append `-- --fix` to auto-resolve simple issues.
+- `npx jest`: Runs the Jest unit suite. Add `--watch` to iterate or `--coverage` before review.
 
 ## Coding Style & Naming Conventions
-Write TypeScript with ES module syntax and 2-space indentation, matching the existing source. Classes and Three.js constructs use `PascalCase`; functions, instances, and system singletons use `camelCase`; constants exported from `constants/` use `SCREAMING_SNAKE_CASE`. Keep files cohesive—systems interact via explicit imports instead of implicit globals. ESLint with the Airbnb TypeScript preset enforces spacing, import order, and unused code; run linting before opening a PR.
+- TypeScript with ES module syntax and 2-space indentation is mandatory.
+- Classes and Three.js constructs use `PascalCase`; functions, instances, and system singletons use `camelCase`.
+- Exported constants from `src/constants/` should use `SCREAMING_SNAKE_CASE` and be colocated with related systems.
+- Keep modules focused; avoid implicit globals and ensure imports are explicit and ordered per ESLint.
 
 ## Testing Guidelines
-Prefer Jest unit tests colocated near logic-heavy modules (e.g., `src/systems/__tests__/TimeManager.test.ts`). Stub Three.js objects or physics instances with lightweight mocks to keep tests deterministic. Cover branches for gameplay state machines, timing utilities, and math helpers; integration with real WebGL belongs in manual QA. Capture a `npx jest --coverage` snapshot before review-worthy changes.
+- Write Jest unit tests near the logic they cover (e.g., `src/systems/__tests__/TimeManager.test.ts`).
+- Mock Three.js or physics dependencies to keep tests deterministic.
+- Capture a `npx jest --coverage` snapshot before handing off review-worthy changes.
 
 ## Commit & Pull Request Guidelines
-Follow concise, imperative commit subjects similar to the existing history (`simplify`, `better cameras`). Group related changes per commit and avoid bundling asset drops with core logic tweaks. PRs should include: 1) a short summary of the feature or fix, 2) a test plan listing commands run (`npm run lint`, `npx jest`, manual scene walkthrough), and 3) notes on new assets or configuration toggles. Attach before/after screenshots or clips when gameplay or visuals change, and link to tracking issues if applicable.
+- Follow concise, imperative commit subjects (examples: `simplify`, `better cameras`). Group related changes per commit.
+- PRs must include a short feature/fix summary, test plan (commands run), and notes on new assets or config toggles.
+- Attach before/after visuals when gameplay or rendering changes.
 
-## Assets & Configuration Tips
-Large binaries belong under `assets/` with descriptive folders (`assets/sounds/Explosions/`). Reference them via relative imports so Vite copies them to `dist/`. Update `tsconfig.json` paths if you introduce aliases, and keep physics tuning or environment flags in dedicated config modules rather than scattering literals across systems.
+## Security & Configuration Tips
+- Keep environment flags and physics tuning inside dedicated config modules rather than scattering literals.
+- Update `tsconfig.json` paths if you introduce new aliases, and ensure Vite asset imports remain relative.

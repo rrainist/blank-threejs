@@ -1,7 +1,7 @@
 {
-  "name": "phaser-starter-template",
+  "name": "babylon-starter-template",
   "version": "1.0.0",
-  "description": "A modern Phaser 4 starter template with TypeScript and Vite",
+  "description": "A modern Babylon.js starter template with TypeScript and Vite",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,11 @@
     "lint": "eslint src --ext ts,js --report-unused-disable-directives --max-warnings 20"
   },
   "dependencies": {
-    "phaser": "4.0.0-rc.4"
+    "@babylonjs/core": "^7.41.1",
+    "@babylonjs/gui": "^7.41.1",
+    "@babylonjs/inspector": "^7.41.1",
+    "@babylonjs/loaders": "^7.41.1",
+    "cannon-es": "^0.20.0"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
@@ -25,6 +29,6 @@
     "typescript": "^5.0.2",
     "vite": "^5.0.8"
   },
-  "author": "Phaser 4 Starter Template",
+  "author": "Babylon Starter Template",
   "license": "MIT"
 }

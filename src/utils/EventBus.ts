@@ -14,7 +14,7 @@ export interface TemplateEventMap {
   'audio:toggle': { muted: boolean }
 }
 
-type EventKey = keyof TemplateEventMap | (string & {})
+type EventKey = keyof TemplateEventMap | (string & { __eventBrand?: never })
 
 export class EventBus {
   private static instance: EventBus
