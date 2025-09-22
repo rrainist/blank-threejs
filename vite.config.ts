@@ -15,6 +15,6 @@ export default defineConfig({
     open: true
   },
   optimizeDeps: {
-    include: ['three']
+    include: ['phaser']
   }
 }) 

@@ -1,62 +1,67 @@
-# Three.js Game Development Template
+# Phaser 4 Starter Template
 
-An "advanced hello world" for Three.js game prototyping. This project boots straight into a small top-down arena demo so you can immediately tweak gameplay, swap assets, or rip pieces out for your own idea. It is intentionally verbose so both humans and LLMs can see the moving parts of a minimal game loop without wading through a full production stack.
+A batteries-included Phaser 4 (RC4) + TypeScript + Vite starter that showcases Arcade and Matter physics, state-driven UI overlays, pooled projectiles, audio, shader-based backdrops, and hot module replacement. Use it as a modern baseline for action platformers, arena shooters, or prototypes that need Phaser's full feature set without rebuilding the scaffolding.
 
 ## 🚀 Quick Start
 
 ```bash
-# Install dependencies
 npm install
+npm run dev    # launches Vite at http://localhost:5173
 
-# Start the Vite dev server (opens http://localhost:5173)
-npm run dev
-
-# Build and preview production output
+# Production build + smoke test
 npm run build
 npm run preview
 ```
 
-## 🧱 What's Inside
+## 🧩 What's Included
 
-- **Game.ts** — orchestrates scene setup, entity spawning, per-frame updates, and UI/audio hooks
-- **Systems** — singletons for input, timing, physics (cannon-es), effects, simple audio playback, and camera control
-- **Entities** — Player, Enemy, Bullet, and Collectible examples that demonstrate pooling, physics integration, and events
-- **UI layer** — lightweight DOM HUD/pause menu wiring via `UIManager`
-- **Utilities** — event bus, logging helper, object pool, configurable constants
+- **Phaser 4 RC4** wired through `src/config/gameConfig.ts` with both Arcade (player/enemies) and Matter (sandbox) physics enabled out of the box.
+- **Scene flow** in `src/scenes/` with Boot → Preload → Main gameplay → UI overlay, all hot-reload safe.
+- **Gameplay sample** in `MainScene` highlighting parallax backgrounds, shader planes, keyboard/pointer/gamepad controls, bullet pooling, and enemy AI patrols.
+- **UI layer** in `UIScene` using the shared event bus for score, wave, health, pause, and audio toggle updates.
+- **Audio + effects**: sound effects preloaded via `PreloadScene`, tweens for feedback, and shader/particle examples.
+- **Utilities**: `utils/Logger` and `utils/EventBus` for structured logging and inter-scene communication.
 
-Everything runs off `src/main.ts`, which prepares Three.js, hands control to the `Game` class, and registers hot-reload friendly cleanup.
-
-## 🗂️ Project Layout
+## 📁 Project Layout
 
 ```
 src/
-├── main.ts          # Entry point: creates renderer/camera/scene and starts the loop
-├── Game.ts          # Core game orchestration
-├── Level.ts         # Builds demo geometry, lighting, and physics bodies
-├── scene.ts         # Minimal scene factory
-├── controls.ts      # Optional orbit-style mouse controls (unused in default demo)
-├── constants/       # Gameplay/visual tuning knobs
-├── entities/        # Player, Enemy, Bullet, Collectible implementations
-├── systems/         # Input, time, physics, audio, UI, camera, effects, asset loading
-└── utils/           # Logger, EventBus, ObjectPool, helpers
+├── config/
+│   ├── gameConfig.ts    # central Phaser.Game configuration
+│   └── sceneKeys.ts     # typed scene key constants
+├── gameobjects/
+│   ├── Bullet.ts        # pooled projectile with lifetime handling
+│   ├── Collectible.ts   # floating pickup with idle tweens
+│   ├── Enemy.ts         # patrol enemy with hit feedback
+│   └── Player.ts        # double-jump player with keyboard, pointer, and gamepad input
+├── scenes/
+│   ├── BootScene.ts     # scale + registry init before asset loading
+│   ├── PreloadScene.ts  # audio/data loading + procedural texture generation
+│   ├── MainScene.ts     # core gameplay loop (Arcade + optional Matter sandbox)
+│   └── UIScene.ts       # HUD, pause, and debug overlays
+├── utils/
+│   ├── EventBus.ts      # strongly-typed pub/sub helper
+│   └── Logger.ts        # environment-aware console logger
+└── main.ts              # Phaser bootstrap with HMR-safe teardown
 ```
 
-## 🕹️ Adapting the Template
+## 🕹️ Controls & Systems
 
-- **Swap the demo**: Replace `Game.ts` with your own scene manager, or keep it and modify the entity spawning/logic sections.
-- **Pick systems a la carte**: Import only the managers you need from `src/systems/`. Each is self-contained with minimal coupling.
-- **Replace assets quickly**: Drop files in `assets/` and register them through `AssetLoader` or directly in your systems.
-- **Extend safely**: `TimeManager`, `EventBus`, `ObjectPool`, and the constants modules provide common patterns without imposing an engine.
+- Arrow keys / WASD to move, Space / Up / pointer tap / gamepad (A) to jump (double jump enabled).
+- Pointer or gamepad (X) fires pooled bullets toward the cursor.
+- `P` toggles pause (freezes physics/time), `Shift` toggles slow motion, `F1` shows Arcade physics debug, `[Toggle Audio]` in HUD mutes/unmutes.
+- The far-right "playground" swaps to Matter physics, demonstrating mixed-mode setups.
 
-## 🛠️ Useful Scripts
+## 🛠️ Extending the Template
 
-- `npm run dev` — Launch Vite with hot module reload
-- `npm run build` — Type-check with `tsc` and emit optimized assets
-- `npm run preview` — Serve the built bundle for smoke testing
-- `npm run lint` — ESLint with the Airbnb TypeScript preset
+- Drop new assets under `assets/` and enqueue them in `PreloadScene`.
+- Add scenes to the `scene` array in `createGameConfig()` to expand the flow (e.g., menus, gameplay variants).
+- Wire additional systems (data persistence, inventories, quests) through the event bus or Phaser plugins.
+- Use Vite's module hot replacement to iterate quickly; `main.ts` already tears down the existing game instance on changes.
 
-## 📄 License
+## ✅ Recommended Checks
 
-MIT — use it commercially or privately.
+- `npm run lint` — ESLint with Airbnb TypeScript preset.
+- `npm run build` — ensures type-check + production build succeed before commits.
 
-Happy prototyping! 🎮
+Licensed under MIT. Happy prototyping! 🎮

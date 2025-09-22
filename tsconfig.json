@@ -20,7 +20,7 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,
     
-    /* Three.js specific */
+    /* Module interop */
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true
